@@ -26,20 +26,15 @@ export function Footer() {
           title="Company"
           items={[
             { label: "About", to: "/about" },
-            { label: "Journal", to: "/journal" },
-            { label: "Craftsmanship", to: "/about" },
-            { label: "Sustainability", to: "/about" },
-          ]}
+            { label: "Journal", to: "/journal" },          ]}
         />
         <FooterCol
           title="Customer Care"
           items={[
             { label: "Contact", to: "/contact" },
-            { label: "Shipping", to: "/contact" },
-            { label: "Returns", to: "/contact" },
-            { label: "Size Guide", to: "/contact" },
-            { label: "Care Guide", to: "/contact" },
-          ]}
+            { label: "Shipping", to: "/shipping" },
+            { label: "Returns", to: "/returns" },
+            { label: "Size Guide", to: "/size-guide" },          ]}
         />
       </div>
       <div className="border-t border-white/10">

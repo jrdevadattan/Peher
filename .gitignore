@@ -2,3 +2,5 @@
 .env
 dist/
 .vite/
+backend/.env
+.env.local

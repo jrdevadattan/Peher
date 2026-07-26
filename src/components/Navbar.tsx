@@ -1,19 +1,22 @@
-import { Link } from "@tanstack/react-router";
-import { Search, User, ShoppingBag, Menu, X, ChevronDown } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Search, User, ShoppingBag, Menu, X, ChevronDown, Heart } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useWishlist } from "@/lib/wishlist-context";
+import { useAuth } from "@/lib/auth-context";
+import { products } from "@/data/products";
 
 const primaryLinks = [
   { to: "/", label: "Home" },
-  { to: "/shop", label: "Shop by Product", hasCaret: true },
-  { to: "/collections", label: "Shop by Collection", hasCaret: true },
+  { to: "/shop", label: "Shop" },
+  { to: "/collections", label: "Collections" },
   { to: "/new-arrivals", label: "New Arrivals" },
   { to: "/shop", label: "Bestsellers" },
-  { to: "/shop", label: "Milestone 70% Sale", accent: true },
-  { to: "/journal", label: "Influencer's Favourite" },
+  { to: "/shop", label: "Sale", accent: true },
+  { to: "/about", label: "About" },
 ] as const;
 
 const marqueeItems = [
-  "Free Gifts on Orders Above ₹2000",
+  "Free Delivery Above ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹1500",
   "Handcrafted in India",
   "Extra is our love language",
 ];
@@ -21,6 +24,15 @@ const marqueeItems = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const navigate = useNavigate();
+  const { count: wishlistCount } = useWishlist();
+  const { user } = useAuth();
+
+  const results = query.trim()
+    ? products.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6)
+    : [];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -38,7 +50,7 @@ export function Navbar() {
             <div key={i} className="flex items-center gap-10 pr-10 shrink-0">
               {marqueeItems.map((t) => (
                 <span key={t} className="text-[11px] tracking-[0.24em] uppercase font-medium flex items-center gap-10">
-                  {t} <span className="opacity-60">✦</span>
+                  {t}
                 </span>
               ))}
             </div>
@@ -64,7 +76,7 @@ export function Navbar() {
 
         <div className="container-luxe flex items-center justify-between gap-6 py-3">
           {/* Left: nav */}
-          <nav className="hidden lg:flex items-center gap-6 flex-1">
+          <nav className="hidden lg:flex items-center justify-between gap-8 flex-1 max-w-2xl">
             {primaryLinks.map((l) => (
               <Link
                 key={l.label}
@@ -94,11 +106,30 @@ export function Navbar() {
 
           {/* Right: icons */}
           <div className="flex items-center gap-5">
-            <button aria-label="Search" className="hover:opacity-70 transition">
+            <button
+              aria-label="Search"
+              className="hover:opacity-70 transition"
+              onClick={() => setSearchOpen((v) => !v)}
+            >
               <Search className="w-[19px] h-[19px]" strokeWidth={1.5} />
             </button>
-            <Link to="/wishlist" aria-label="Account" className="hover:opacity-70 transition">
+            <Link to="/wishlist" aria-label="Wishlist" className="relative hover:opacity-70 transition">
+              <Heart className="w-[19px] h-[19px]" strokeWidth={1.5} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-black text-white text-[9px] w-4 h-4 rounded-full grid place-items-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
+            <Link
+              to={user ? "/dashboard" : "/login"}
+              aria-label="Account"
+              className="hover:opacity-70 transition flex items-center gap-1.5"
+            >
               <User className="w-[19px] h-[19px]" strokeWidth={1.5} />
+              {user && (
+                <span className="hidden md:inline text-[11px] font-medium">{user.name.split(" ")[0]}</span>
+              )}
             </Link>
             <Link to="/cart" aria-label="Cart" className="hover:opacity-70 transition">
               <ShoppingBag className="w-[19px] h-[19px]" strokeWidth={1.5} />
@@ -106,6 +137,45 @@ export function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Search panel */}
+      {searchOpen && (
+        <div className="bg-white border-b border-black/10 shadow-md">
+          <div className="container-luxe py-5">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search for rings, necklaces, earrings..."
+              className="w-full border-b border-black/20 pb-3 text-lg font-serif outline-none focus:border-black transition"
+            />
+            {results.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                {results.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSearchOpen(false);
+                      setQuery("");
+                      navigate({ to: "/product/$id", params: { id: p.id } });
+                    }}
+                    className="flex items-center gap-3 text-left hover:opacity-70 transition"
+                  >
+                    <img src={p.image} alt={p.name} className="w-12 h-14 object-cover rounded-sm" />
+                    <div>
+                      <p className="text-sm font-medium">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹{p.price.toLocaleString("en-IN")}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {query.trim() && results.length === 0 && (
+              <p className="mt-4 text-sm text-muted-foreground">No products found for "{query}".</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mobile menu */}
       {open && (
@@ -133,5 +203,4 @@ export function Navbar() {
     </header>
   );
 }
-
 

@@ -21,12 +21,15 @@ const addressSchema = new mongoose.Schema({
 }, { _id: false });
 
 const orderSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   items: { type: [orderItemSchema], required: true },
   address: { type: addressSchema, required: true },
   subtotal: { type: Number, required: true },
   total: { type: Number, required: true },
-  status: { type: String, default: "pending" }, // pending, confirmed, paid, shipped, delivered, cancelled
-  paymentStatus: { type: String, default: "unpaid" }, // unpaid, paid
+  status: { type: String, default: "pending" },
+  paymentStatus: { type: String, default: "unpaid" },
+  razorpayOrderId: { type: String, required: true },
+  razorpayPaymentId: { type: String, required: true },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Order", orderSchema);

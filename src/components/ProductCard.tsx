@@ -1,6 +1,7 @@
 ﻿import { Link } from "@tanstack/react-router";
 import { useCart } from "@/lib/cart-context";
-import { Minus, Plus } from "lucide-react";
+import { useWishlist } from "@/lib/wishlist-context";
+import { Minus, Plus, Heart } from "lucide-react";
 
 export type Product = {
   id: string;
@@ -16,7 +17,9 @@ export type Product = {
 
 export function ProductCard({ product }: { product: Product }) {
   const { items, addItem, updateQty, removeItem } = useCart();
+  const { isWishlisted, toggleItem } = useWishlist();
   const cartItem = items.find((i) => i.id === product.id && i.size === null);
+  const liked = isWishlisted(product.id);
 
   const save =
     product.originalPrice && product.originalPrice > product.price
@@ -27,6 +30,12 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
     addItem(product, null, 1);
+  };
+
+  const handleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleItem(product.id);
   };
 
   const increment = (e: React.MouseEvent) => {
@@ -77,6 +86,19 @@ export function ProductCard({ product }: { product: Product }) {
             {product.badge}
           </span>
         ) : null}
+
+        <button
+          onClick={handleWishlist}
+          aria-label={liked ? "Remove from wishlist" : "Add to wishlist"}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur grid place-items-center shadow-sm hover:scale-110 transition-transform"
+        >
+          <Heart
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            fill={liked ? "#111" : "none"}
+            stroke="#111"
+          />
+        </button>
       </Link>
 
       <div className="pt-4">

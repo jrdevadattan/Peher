@@ -2,12 +2,16 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/lib/cart-context";
+import { useAuth } from "@/lib/auth-context";
 import { useState } from "react";
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
-  head: () => ({ meta: [{ title: "Checkout — PEHER" }] }),
+  head: () => ({ meta: [{ title: "Checkout - PEHER" }] }),
 });
+
+// Set to true to require login before checkout (re-enable later)
+const REQUIRE_LOGIN_FOR_CHECKOUT = false;
 
 type AddressForm = {
   fullName: string;
@@ -39,6 +43,7 @@ declare global {
 
 function Checkout() {
   const { items, subtotal, clearCart } = useCart();
+  const { user, token, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState<AddressForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +64,37 @@ function Checkout() {
     form.state.trim().length > 1 &&
     /^[0-9]{6}$/.test(form.pincode.trim());
 
+  const saveOrder = async (razorpayOrderId: string, razorpayPaymentId: string) => {
+    const orderItems = items.map((i) => ({
+      id: i.id,
+      name: i.name,
+      price: i.price,
+      image: i.image,
+      material: i.material,
+      size: i.size,
+      qty: i.qty,
+    }));
+
+    const res = await fetch(`${API_BASE}/orders`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        items: orderItems,
+        address: form,
+        subtotal,
+        total,
+        razorpayOrderId,
+        razorpayPaymentId,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Payment succeeded but saving your order failed. Please contact support.");
+    return res.json();
+  };
+
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
@@ -66,7 +102,6 @@ function Checkout() {
     setSubmitting(true);
 
     try {
-      // 1. Create a Razorpay order on the backend
       const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,9 +110,8 @@ function Checkout() {
       if (!orderRes.ok) throw new Error("Could not initiate payment. Please try again.");
       const razorpayOrder = await orderRes.json();
 
-      // 2. Open Razorpay Checkout popup
       const options = {
-        key: "PASTE_YOUR_RAZORPAY_KEY_ID", // TODO: replace with your public Razorpay Key ID
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
         name: "PEHER",
@@ -90,7 +124,6 @@ function Checkout() {
         theme: { color: "#111111" },
         handler: async (response: any) => {
           try {
-            // 3. Verify payment signature on backend
             const verifyRes = await fetch(`${API_BASE}/payment/verify`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -103,14 +136,14 @@ function Checkout() {
             const verifyData = await verifyRes.json();
 
             if (verifyData.verified) {
-              // TODO: also POST to /api/orders here to save the order in MongoDB
+              await saveOrder(response.razorpay_order_id, response.razorpay_payment_id);
               clearCart();
               navigate({ to: "/" });
             } else {
               setError("Payment verification failed. Please contact support.");
             }
-          } catch {
-            setError("Payment verification failed. Please contact support.");
+          } catch (err: any) {
+            setError(err.message || "Something went wrong saving your order. Please contact support.");
           } finally {
             setSubmitting(false);
           }
@@ -132,6 +165,11 @@ function Checkout() {
     }
   };
 
+  const goToAuth = (path: "/login" | "/signup") => {
+    sessionStorage.setItem("post-login-redirect", "/checkout");
+    navigate({ to: path });
+  };
+
   if (items.length === 0) {
     return (
       <div className="bg-white">
@@ -147,6 +185,48 @@ function Checkout() {
     );
   }
 
+  if (REQUIRE_LOGIN_FOR_CHECKOUT && authLoading) {
+    return (
+      <div className="bg-white">
+        <Navbar />
+        <div className="pt-40 pb-32" />
+        <Footer />
+      </div>
+    );
+  }
+
+  if (REQUIRE_LOGIN_FOR_CHECKOUT && !user) {
+    return (
+      <div className="bg-white">
+        <Navbar />
+        <div className="pt-40 pb-32 container-luxe text-center">
+          <p className="eyebrow">Checkout</p>
+          <h1 className="font-serif text-4xl md:text-6xl mt-4">Sign in to place your order</h1>
+          <p className="mt-4 text-sm text-muted-foreground max-w-md mx-auto">
+            Create an account or log in so we can save your order details and let you track them anytime from your dashboard.
+          </p>
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <button onClick={() => goToAuth("/login")} className="btn-peher">
+              Log in
+            </button>
+            <button
+              onClick={() => goToAuth("/signup")}
+              className="px-6 py-3 border border-black text-[11px] tracking-[0.2em] uppercase font-semibold hover:bg-black hover:text-white transition"
+            >
+              Sign up
+            </button>
+          </div>
+          <div className="mt-8">
+            <Link to="/cart" className="text-[11px] tracking-[0.2em] uppercase border-b border-black pb-1">
+              Back to Cart
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white">
       <Navbar />
@@ -156,7 +236,6 @@ function Checkout() {
       </section>
 
       <form onSubmit={handlePlaceOrder} className="container-luxe pb-32 grid grid-cols-1 lg:grid-cols-12 gap-16">
-        {/* Address form */}
         <div className="lg:col-span-7">
           <p className="eyebrow !text-foreground mb-6 pb-2 border-b-2 border-[#D8E7D2] inline-block">Delivery Address</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -189,7 +268,6 @@ function Checkout() {
           </div>
         </div>
 
-        {/* Order summary */}
         <aside className="lg:col-span-5">
           <div className="bg-[#D8E7D2]/25 border border-[#D8E7D2] p-8 md:p-10 rounded-md">
             <h2 className="font-serif text-3xl">Order Summary</h2>
@@ -202,21 +280,21 @@ function Checkout() {
                   <div className="flex-1 flex flex-col justify-center">
                     <p className="font-serif text-base leading-tight">{i.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {i.size ? `Size ${i.size} · ` : ""}Qty {i.qty}
+                      {i.size ? `Size ${i.size} - ` : ""}Qty {i.qty}
                     </p>
                   </div>
-                  <p className="text-sm self-center">₹{(i.price * i.qty).toLocaleString("en-IN")}</p>
+                  <p className="text-sm self-center">Rs {(i.price * i.qty).toLocaleString("en-IN")}</p>
                 </div>
               ))}
             </div>
 
             <dl className="mt-6 pt-6 border-t border-black/10 space-y-3 text-sm">
-              <Row k="Subtotal" v={`₹${subtotal.toLocaleString("en-IN")}`} />
+              <Row k="Subtotal" v={`Rs ${subtotal.toLocaleString("en-IN")}`} />
               <Row k="Shipping" v="Complimentary" />
             </dl>
             <div className="border-t border-black/10 mt-6 pt-6 flex items-center justify-between">
               <span className="eyebrow !text-foreground">Total</span>
-              <span className="font-serif text-2xl">₹{total.toLocaleString("en-IN")}</span>
+              <span className="font-serif text-2xl">Rs {total.toLocaleString("en-IN")}</span>
             </div>
 
             <button
@@ -232,12 +310,8 @@ function Checkout() {
               </p>
             )}
           </div>
-          <div className="text-center mt-6">
-            <Link to="/cart" className="text-[11px] tracking-[0.2em] uppercase border-b border-black pb-1">Back to Cart</Link>
-          </div>
         </aside>
       </form>
-      <Footer />
     </div>
   );
 }
@@ -259,12 +333,13 @@ function Field({
 }) {
   return (
     <div className={colSpan2 ? "sm:col-span-2" : full ? "sm:col-span-2" : ""}>
-      <label className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground">{label}</label>
+      <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</label>
       <input
+        type="text"
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="mt-2 w-full px-4 py-3 border border-black/15 bg-white text-sm outline-none focus:border-black transition"
+        className="w-full border border-black/20 px-3 py-2.5 text-sm focus:outline-none focus:border-black"
       />
     </div>
   );
@@ -278,4 +353,3 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
-

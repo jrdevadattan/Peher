@@ -1,29 +1,43 @@
 ﻿const express = require("express");
-const router = express.Router();
+const requireAuth = require("../middleware/auth");
 const Order = require("../models/Order");
 
-// POST create new order
-router.post("/", async (req, res) => {
-  try {
-    const { items, address, subtotal, total } = req.body;
-    if (!items || !items.length) return res.status(400).json({ error: "No items in order" });
-    if (!address) return res.status(400).json({ error: "Address is required" });
+const router = express.Router();
 
-    const order = await Order.create({ items, address, subtotal, total });
-    res.status(201).json(order);
+// Create an order — must be logged in. Only reached after Razorpay signature is verified client-side.
+router.post("/", requireAuth, async (req, res) => {
+  try {
+    const { items, address, subtotal, total, razorpayOrderId, razorpayPaymentId } = req.body;
+    if (!items || !items.length || !address || subtotal == null || total == null) {
+      return res.status(400).json({ error: "Missing required order fields" });
+    }
+    if (!razorpayOrderId || !razorpayPaymentId) {
+      return res.status(400).json({ error: "Missing payment reference" });
+    }
+    const order = await Order.create({
+      user: req.userId,
+      items,
+      address,
+      subtotal,
+      total,
+      razorpayOrderId,
+      razorpayPaymentId,
+      paymentStatus: "paid",
+      status: "confirmed",
+    });
+    res.json(order);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Could not create order" });
   }
 });
 
-// GET single order by id (for confirmation page later)
-router.get("/:id", async (req, res) => {
+// Logged-in user's own orders
+router.get("/my", requireAuth, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: "Order not found" });
-    res.json(order);
+    const orders = await Order.find({ user: req.userId }).sort({ createdAt: -1 });
+    res.json(orders);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Could not fetch orders" });
   }
 });
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import craft from "@/assets/craft.jpg";
@@ -7,7 +7,7 @@ import hero from "@/assets/hero.jpg";
 
 export const Route = createFileRoute("/about")({
   component: About,
-  head: () => ({ meta: [{ title: "About — PEHER" }, { name: "description", content: "PEHER is a jewellery house by Vasudha Tiwari, founded on quiet craft and lasting emotion." }] }),
+  head: () => ({ meta: [{ title: "About — PEHER" }, { name: "description", content: "Peher exists for the people who've never understood the phrase less is more." }] }),
 });
 
 function About() {
@@ -15,9 +15,9 @@ function About() {
     <div className="bg-white">
       <Navbar />
       <section className="pt-40 pb-24 container-luxe">
-        <p className="eyebrow">Our Story</p>
+        <p className="eyebrow">About Us</p>
         <h1 className="font-serif text-5xl md:text-8xl mt-6 leading-[0.95] max-w-4xl">
-          Extra is our <br /><em className="italic">love language.</em>
+          Extra has always <br />been our <em className="italic">love language.</em>
         </h1>
       </section>
 
@@ -26,12 +26,20 @@ function About() {
           <img src={editorial1} alt="" className="w-full h-full object-cover" />
         </div>
         <div className="lg:col-span-5 lg:col-start-8">
-          <p className="eyebrow">Founder</p>
-          <h2 className="font-serif text-4xl md:text-5xl mt-4">Vasudha Tiwari</h2>
-          <div className="mt-8 space-y-5 text-foreground/75 leading-relaxed">
-            <p>PEHER was born from a quiet obsession — pieces of jewellery that carry the softness of memory. Objects that feel less like accessories and more like keepsakes.</p>
-            <p>Every piece is drawn by hand, sculpted in wax, cast in fine metals, and finished slowly by a small team of artisans. There are no shortcuts. There is no rush.</p>
-            <p>We believe extra isn't excess. It's care. It's the small unnecessary gestures that make something feel loved.</p>
+          <div className="space-y-5 text-foreground/75 leading-relaxed">
+            <p className="text-foreground text-lg font-medium">
+              Peher exists for the people who've never understood the phrase "less is more."
+            </p>
+            <p>We're firmly on team "one more bangle won't hurt."</p>
+            <p>
+              Born from a love for Indian craftsmanship, fashion, colour, nostalgia, and a
+              healthy obsession with accessories, Peher creates pieces that don't whisper —
+              they celebrate. Loudly.
+            </p>
+            <p>
+              We grew up watching our mothers save jewellery for "special occasions." We grew
+              up asking, why wait?
+            </p>
           </div>
         </div>
       </section>
@@ -39,11 +47,18 @@ function About() {
       <section className="bg-[#f9f9f7] py-24 md:py-32">
         <div className="container-luxe grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
-            <p className="eyebrow">Craftsmanship</p>
-            <h2 className="font-serif text-4xl md:text-6xl mt-5">Made slowly, on purpose.</h2>
+            <p className="eyebrow">Our Philosophy</p>
+            <h2 className="font-serif text-4xl md:text-6xl mt-5">Maximalism, worn well.</h2>
             <div className="mt-8 space-y-5 text-foreground/75 leading-relaxed max-w-lg">
-              <p>Our atelier works in small batches. Each ring, chain, and earring passes through several hands before it reaches yours — carved, cast, filed, polished, and set with quiet precision.</p>
-              <p>We source responsibly: recycled 18k gold, ethically farmed pearls, and stones with traceable histories.</p>
+              <p>
+                So we mix heirloom energy with modern styling, traditional craftsmanship with
+                playful chaos, and everyday outfits with main-character confidence. The result?
+                Accessories that feel equal parts timeless and unexpected.
+              </p>
+              <p>
+                At Peher, maximalism isn't about wearing more. It's about expressing more.
+                More colour. More personality. More memories. More you.
+              </p>
             </div>
           </div>
           <div className="aspect-[4/5] overflow-hidden">
@@ -52,14 +67,20 @@ function About() {
         </div>
       </section>
 
-      <section className="py-24 md:py-32 container-luxe">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 border-t border-black/10 pt-16">
-          {[["01", "Drawn"], ["02", "Carved"], ["03", "Cast"], ["04", "Finished"]].map(([n, l]) => (
-            <div key={n}>
-              <div className="eyebrow">{n}</div>
-              <div className="font-serif text-2xl md:text-3xl mt-3">{l}</div>
-            </div>
-          ))}
+      <section className="py-24 md:py-32 container-luxe max-w-3xl">
+        <p className="eyebrow">Made To Be Worn</p>
+        <div className="mt-6 space-y-5 text-foreground/75 leading-relaxed text-lg">
+          <p>
+            Every piece is designed to be stacked, layered, mixed, mismatched, borrowed,
+            stolen by your sister, complimented by strangers, and eventually become
+            "Where did you get that from?"
+          </p>
+          <p>
+            Wear the statement earrings to brunch. Stack six bangles on a Tuesday. Pair
+            heritage with streetwear. Wear gold with silver. Wear colour with confidence.
+          </p>
+          <p className="text-foreground font-medium">Life's too short for boring accessories.</p>
+          <p>And around here? Extra has always been our love language.</p>
         </div>
       </section>
 
