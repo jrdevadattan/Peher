@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/lib/cart-context";
@@ -33,7 +33,7 @@ const emptyForm: AddressForm = {
   pincode: "",
 };
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 declare global {
   interface Window {
@@ -283,18 +283,18 @@ function Checkout() {
                       {i.size ? `Size ${i.size} - ` : ""}Qty {i.qty}
                     </p>
                   </div>
-                  <p className="text-sm self-center">Rs {(i.price * i.qty).toLocaleString("en-IN")}</p>
+                  <p className="text-sm self-center">₹{(i.price * i.qty).toLocaleString("en-IN")}</p>
                 </div>
               ))}
             </div>
 
             <dl className="mt-6 pt-6 border-t border-black/10 space-y-3 text-sm">
-              <Row k="Subtotal" v={`Rs ${subtotal.toLocaleString("en-IN")}`} />
+              <Row k="Subtotal" v={`₹${subtotal.toLocaleString("en-IN")}`} />
               <Row k="Shipping" v="Complimentary" />
             </dl>
             <div className="border-t border-black/10 mt-6 pt-6 flex items-center justify-between">
               <span className="eyebrow !text-foreground">Total</span>
-              <span className="font-serif text-2xl">Rs {total.toLocaleString("en-IN")}</span>
+              <span className="font-serif text-2xl">₹{total.toLocaleString("en-IN")}</span>
             </div>
 
             <button

@@ -21,12 +21,15 @@ app.get("/", (req, res) => res.send("PEHER API running"));
 
 const PORT = process.env.PORT || 5000;
 
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("MongoDB connected");
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => console.error("MongoDB connection error:", err));
+if (process.env.MONGODB_URI) {
+  mongoose
+    .connect(process.env.MONGODB_URI)
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.error("MongoDB connection error:", err.message));
+} else {
+  console.warn("MONGODB_URI not configured. Server starting without database connection.");
+}
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 

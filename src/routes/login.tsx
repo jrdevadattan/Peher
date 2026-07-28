@@ -1,9 +1,7 @@
-﻿import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/lib/auth-context";
-
-console.log("CLIENT ID DEBUG:", JSON.stringify(import.meta.env.VITE_GOOGLE_CLIENT_ID));
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,

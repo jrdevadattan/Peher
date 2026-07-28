@@ -1,4 +1,4 @@
-﻿import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
@@ -18,10 +18,10 @@ export const Route = createFileRoute("/product/$id")({
   head: ({ loaderData }) => ({
     meta: loaderData
       ? [
-          { title: `${loaderData.product.name} â€” PEHER` },
-          { name: "description", content: `${loaderData.product.name} Â· ${loaderData.product.material}` },
+          { title: `${loaderData.product.name} — PEHER` },
+          { name: "description", content: `${loaderData.product.name} · ${loaderData.product.material}` },
         ]
-      : [{ title: "Not found â€” PEHER" }, { name: "robots", content: "noindex" }],
+      : [{ title: "Not found — PEHER" }, { name: "robots", content: "noindex" }],
   }),
 });
 
@@ -86,10 +86,10 @@ function ProductPage() {
         <div className="lg:col-span-5">
           <p className="eyebrow">{product.material}</p>
           <h1 className="font-serif text-4xl md:text-5xl mt-4 leading-[1.05]">{product.name}</h1>
-          <p className="mt-6 text-2xl font-serif">${product.price}</p>
+          <p className="mt-6 text-2xl font-serif">₹{product.price.toLocaleString("en-IN")}</p>
 
           <p className="mt-8 font-serif italic text-lg leading-relaxed text-foreground/80 max-w-md">
-            Formed by time and pressure, each piece carries a quiet history. Organic lines shaped by hand â€” no two are ever the same.
+            Formed by time and pressure, each piece carries a quiet history. Organic lines shaped by hand — no two are ever the same.
           </p>
 
           <div className="mt-10">
@@ -127,7 +127,7 @@ function ProductPage() {
           <button onClick={handleBuyNow} className="btn-peher w-full mt-3">Buy Now</button>
 
           <div className="mt-6 flex items-center justify-center gap-5 text-[10px] tracking-[0.24em] uppercase text-muted-foreground">
-            <span>Complimentary Shipping</span><span>Â·</span><span>Free Returns</span>
+            <span>Complimentary Shipping</span><span>·</span><span>Free Returns</span>
           </div>
 
           <div className="mt-12 border-t border-black/10">
@@ -166,7 +166,7 @@ function ProductPage() {
               <figure key={t.a} className="text-center">
                 <div className="text-[#D8E7D2] font-serif text-5xl leading-none mb-3">"</div>
                 <blockquote className="font-serif italic text-lg leading-relaxed text-foreground/85">{t.q}</blockquote>
-                <figcaption className="mt-5 eyebrow">â€” {t.a}</figcaption>
+                <figcaption className="mt-5 eyebrow">— {t.a}</figcaption>
               </figure>
             ))}
           </div>

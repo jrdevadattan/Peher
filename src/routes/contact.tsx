@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { MapPin, Mail, Phone } from "lucide-react";
+import { MapPin, Mail, Phone, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/contact")({
   component: Contact,
@@ -9,6 +10,13 @@ export const Route = createFileRoute("/contact")({
 });
 
 function Contact() {
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+  };
+
   return (
     <div className="bg-white">
       <Navbar />
@@ -41,18 +49,31 @@ function Contact() {
           </div>
         </div>
 
-        <form className="lg:col-span-7 space-y-6" onSubmit={(e) => e.preventDefault()}>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Field label="Name" />
-            <Field label="Email" type="email" />
+        {submitted ? (
+          <div className="lg:col-span-7 flex flex-col items-center justify-center p-12 bg-[#D8E7D2]/25 border border-[#D8E7D2] rounded-md text-center">
+            <CheckCircle2 className="w-12 h-12 text-[#5b7a52] mb-4" strokeWidth={1.5} />
+            <h3 className="font-serif text-3xl">Thank you for writing to us.</h3>
+            <p className="mt-3 text-foreground/75 max-w-md">
+              We have received your message. A member of our atelier team will respond to your query shortly.
+            </p>
+            <button onClick={() => setSubmitted(false)} className="mt-8 btn-peher-outline">
+              Send Another Message
+            </button>
           </div>
-          <Field label="Subject" />
-          <div>
-            <label className="eyebrow !text-foreground block mb-3">Message</label>
-            <textarea rows={6} className="w-full border-b border-black/20 pb-3 outline-none focus:border-black bg-transparent resize-none" />
-          </div>
-          <button className="btn-peher">Send Message</button>
-        </form>
+        ) : (
+          <form className="lg:col-span-7 space-y-6" onSubmit={handleSubmit}>
+            <div className="grid md:grid-cols-2 gap-6">
+              <Field label="Name" required />
+              <Field label="Email" type="email" required />
+            </div>
+            <Field label="Subject" required />
+            <div>
+              <label className="eyebrow !text-foreground block mb-3">Message</label>
+              <textarea required rows={6} className="w-full border-b border-black/20 pb-3 outline-none focus:border-black bg-transparent resize-none" />
+            </div>
+            <button type="submit" className="btn-peher">Send Message</button>
+          </form>
+        )}
       </section>
 
       <div className="aspect-[16/6] bg-[#f9f9f7] grid place-items-center border-y border-black/5">
@@ -64,11 +85,11 @@ function Contact() {
   );
 }
 
-function Field({ label, type = "text" }: { label: string; type?: string }) {
+function Field({ label, type = "text", required }: { label: string; type?: string; required?: boolean }) {
   return (
     <div>
       <label className="eyebrow !text-foreground block mb-3">{label}</label>
-      <input type={type} className="w-full border-b border-black/20 pb-3 outline-none focus:border-black bg-transparent" />
+      <input required={required} type={type} className="w-full border-b border-black/20 pb-3 outline-none focus:border-black bg-transparent" />
     </div>
   );
 }
