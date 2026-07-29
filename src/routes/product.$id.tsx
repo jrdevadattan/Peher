@@ -32,6 +32,9 @@ import {
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/product/$id")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    variant: typeof search.variant === "string" ? search.variant : undefined,
+  }),
   component: ProductPage,
   pendingComponent: ProductPending,
   loader: async ({ params }) => {
@@ -57,9 +60,7 @@ export const Route = createFileRoute("/product/$id")({
     const { product, reviews, settings } = loaderData;
     const title = product.seoTitle || `${product.name} | ${settings.storeName}`;
     const description =
-      product.seoDescription ||
-      product.shortDescription ||
-      product.description.slice(0, 160);
+      product.seoDescription || product.shortDescription || product.description.slice(0, 160);
     const canonical = absoluteUrl(settings, `/product/${product.id}`);
     return {
       meta: [
@@ -100,13 +101,7 @@ function ProductPending() {
   );
 }
 
-function RatingStars({
-  value,
-  size = "w-4 h-4",
-}: {
-  value: number;
-  size?: string;
-}) {
+function RatingStars({ value, size = "w-4 h-4" }: { value: number; size?: string }) {
   return (
     <span className="inline-flex gap-1" aria-label={`${value} out of 5 stars`}>
       {Array.from({ length: 5 }, (_, index) => (
@@ -176,7 +171,9 @@ function ReviewForm({ productId }: { productId: string }) {
       setSubmitted(true);
     } catch (submissionError) {
       const message =
-        submissionError instanceof Error ? submissionError.message : "Your review could not be submitted.";
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Your review could not be submitted.";
       setError(
         message.includes("duplicate") || message.includes("already")
           ? "You have already reviewed this product."
@@ -256,7 +253,11 @@ function ReviewForm({ productId }: { productId: string }) {
           </span>
         </label>
       </div>
-      {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-red-700">
+          {error}
+        </p>
+      )}
       <button type="submit" disabled={busy} className="btn-peher mt-5 min-w-44 disabled:opacity-50">
         {busy ? "Submitting..." : "Submit review"}
       </button>
@@ -266,8 +267,14 @@ function ReviewForm({ productId }: { productId: string }) {
 
 function ProductPage() {
   const { product, reviews, settings } = Route.useLoaderData();
+  const { variant: requestedVariant } = Route.useSearch();
   const { data: products = [], isLoading: recommendationsLoading } = useProducts();
-  const [size, setSize] = useState<string | null>(null);
+  const [size, setSize] = useState<string | null>(
+    () =>
+      product.variants.find(
+        (variant) => variant.id === requestedVariant || variant.sku === requestedVariant,
+      )?.size ?? null,
+  );
   const [qty, setQty] = useState(1);
   const { addItem } = useCart();
   const navigate = useNavigate();
@@ -295,14 +302,22 @@ function ProductPage() {
       <Navbar />
 
       <div className="pt-32 pb-4 container-luxe flex items-center justify-between">
-        <Link to="/shop" className="inline-flex items-center gap-2 text-[11px] tracking-[0.2em] uppercase font-medium hover:opacity-60 transition">
+        <Link
+          to="/shop"
+          className="inline-flex items-center gap-2 text-[11px] tracking-[0.2em] uppercase font-medium hover:opacity-60 transition"
+        >
           <ArrowLeft className="w-4 h-4" strokeWidth={1.25} /> Back
         </Link>
         <div className="text-center">
           <p className="font-serif tracking-[0.3em] text-sm">PEHER</p>
-          <p className="text-[9px] tracking-[0.28em] text-muted-foreground mt-0.5">NEW COLLECTION</p>
+          <p className="text-[9px] tracking-[0.28em] text-muted-foreground mt-0.5">
+            NEW COLLECTION
+          </p>
         </div>
-        <button aria-label="Wishlist" className="w-10 h-10 grid place-items-center rounded-full hover:bg-muted transition">
+        <button
+          aria-label="Wishlist"
+          className="w-10 h-10 grid place-items-center rounded-full hover:bg-muted transition"
+        >
           <Heart className="w-[18px] h-[18px]" strokeWidth={1.25} />
         </button>
       </div>
@@ -347,7 +362,9 @@ function ProductPage() {
           <div className="mt-10">
             <div className="flex items-center justify-between mb-4">
               <p className="eyebrow !text-foreground">Select Size</p>
-              <button className="text-[11px] tracking-[0.18em] uppercase underline underline-offset-4 text-muted-foreground hover:text-foreground">Size Guide</button>
+              <button className="text-[11px] tracking-[0.18em] uppercase underline underline-offset-4 text-muted-foreground hover:text-foreground">
+                Size Guide
+              </button>
             </div>
             <div className="grid grid-cols-5 gap-2">
               {sizes.map((s) => (
@@ -355,7 +372,9 @@ function ProductPage() {
                   key={s}
                   onClick={() => setSize(s)}
                   className={`py-3 text-sm border transition ${
-                    size === s ? "border-black bg-black text-white" : "border-black/15 hover:border-black"
+                    size === s
+                      ? "border-black bg-black text-white"
+                      : "border-black/15 hover:border-black"
                   }`}
                 >
                   {s}
@@ -366,7 +385,10 @@ function ProductPage() {
 
           <div className="mt-8 flex items-center gap-4">
             <div className="flex items-center border border-black/15">
-              <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-11 h-11 grid place-items-center">
+              <button
+                onClick={() => setQty(Math.max(1, qty - 1))}
+                className="w-11 h-11 grid place-items-center"
+              >
                 <Minus className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
               <span className="w-10 text-center text-sm">{qty}</span>
@@ -374,32 +396,69 @@ function ProductPage() {
                 <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
             </div>
-            <button onClick={handleAddToBag} className="btn-peher-outline flex-1">{added ? "Added ✓" : "Add to Bag"}</button>
+            <button onClick={handleAddToBag} className="btn-peher-outline flex-1">
+              {added ? "Added ✓" : "Add to Bag"}
+            </button>
           </div>
-          <button onClick={handleBuyNow} className="btn-peher w-full mt-3">Buy Now</button>
+          <button onClick={handleBuyNow} className="btn-peher w-full mt-3">
+            Buy Now
+          </button>
 
           <div className="mt-6 flex items-center justify-center gap-5 text-[10px] tracking-[0.24em] uppercase text-muted-foreground">
-            <span>Free shipping over ₹{settings.freeShippingThreshold.toLocaleString("en-IN")}</span>
+            <span>
+              Free shipping over ₹{settings.freeShippingThreshold.toLocaleString("en-IN")}
+            </span>
             <span>·</span>
             <span>Damage support</span>
           </div>
 
           <div className="mt-12 border-t border-black/10">
             {[
-              { t: "Description", c: `Handcrafted in ${product.material.toLowerCase()}, this piece is finished slowly in our atelier. Weight and proportions are refined by hand.` },
-              { t: "Shipping", c: `We currently ship across India. Orders are processed within 1–3 business days after confirmation. Standard delivery usually takes 7–8 business days depending on your location. Cash on Delivery (COD) is not available — we accept prepaid orders only. Standard shipping is ₹${settings.standardShippingRate.toLocaleString("en-IN")} per order. Shipping is free on orders of ₹${settings.freeShippingThreshold.toLocaleString("en-IN")} or more. Delivery timelines may vary during festivals, sales, or due to unforeseen courier delays.` },
-              { t: "Returns", c: "At Peher, every order is packed with care. Due to the nature of our products, we currently do not accept returns or exchanges unless the item received is damaged, defective, or incorrect. If you receive a damaged or incorrect product, please contact us within 48 hours of delivery with your order number and clear photos of the item. Our team will review your request and arrange a replacement or appropriate resolution. Items must be unused and in their original packaging. Minor variations in colour or finish may occur due to photography and the handcrafted nature of some products and are not considered defects. Sale items are not eligible for return or exchange." },
-              { t: "Care Guide", c: "Store in the pouch provided. Wipe with a soft cloth. Avoid contact with perfume and water for longest wear." },
-              { t: "Size Guide", c: "Ring sizes follow US standards. If between sizes, we suggest sizing up." },
-            ].map((row) => (
-              <details key={row.t} className="group border-b border-black/10 py-5">
-                <summary className="flex items-center justify-between cursor-pointer list-none">
-                  <span className="eyebrow !text-foreground">{row.t}</span>
-                  <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" strokeWidth={1.25} />
-                </summary>
-                <p className="mt-4 text-sm text-foreground/75 leading-relaxed">{row.c}</p>
-              </details>
-            ))}
+              {
+                t: "Description",
+                c: `Handcrafted in ${product.material.toLowerCase()}, this piece is finished slowly in our atelier. Weight and proportions are refined by hand.`,
+              },
+              {
+                t: "Specifications",
+                c: [
+                  product.material && `Material: ${product.material}`,
+                  product.weight && `Weight: ${product.weight}`,
+                  product.dimensions && `Dimensions: ${product.dimensions}`,
+                  product.subcategory && `Style: ${product.subcategory}`,
+                ]
+                  .filter(Boolean)
+                  .join(" | "),
+              },
+              {
+                t: "Shipping",
+                c: `We currently ship across India. Orders are processed within 1–3 business days after confirmation. Standard delivery usually takes 7–8 business days depending on your location. Cash on Delivery (COD) is not available — we accept prepaid orders only. Standard shipping is ₹${settings.standardShippingRate.toLocaleString("en-IN")} per order. Shipping is free on orders of ₹${settings.freeShippingThreshold.toLocaleString("en-IN")} or more. Delivery timelines may vary during festivals, sales, or due to unforeseen courier delays.`,
+              },
+              {
+                t: "Returns",
+                c: "At Peher, every order is packed with care. Due to the nature of our products, we currently do not accept returns or exchanges unless the item received is damaged, defective, or incorrect. If you receive a damaged or incorrect product, please contact us within 48 hours of delivery with your order number and clear photos of the item. Our team will review your request and arrange a replacement or appropriate resolution. Items must be unused and in their original packaging. Minor variations in colour or finish may occur due to photography and the handcrafted nature of some products and are not considered defects. Sale items are not eligible for return or exchange.",
+              },
+              {
+                t: "Care Guide",
+                c: "Store in the pouch provided. Wipe with a soft cloth. Avoid contact with perfume and water for longest wear.",
+              },
+              {
+                t: "Size Guide",
+                c: "Ring sizes follow US standards. If between sizes, we suggest sizing up.",
+              },
+            ]
+              .filter((row) => row.c)
+              .map((row) => (
+                <details key={row.t} className="group border-b border-black/10 py-5">
+                  <summary className="flex items-center justify-between cursor-pointer list-none">
+                    <span className="eyebrow !text-foreground">{row.t}</span>
+                    <ChevronDown
+                      className="w-4 h-4 transition-transform group-open:rotate-180"
+                      strokeWidth={1.25}
+                    />
+                  </summary>
+                  <p className="mt-4 text-sm text-foreground/75 leading-relaxed">{row.c}</p>
+                </details>
+              ))}
           </div>
         </div>
       </section>
@@ -426,9 +485,7 @@ function ProductPage() {
                 {reviews.map((review) => (
                   <article key={review.id} className="border border-black/10 bg-white p-6">
                     <RatingStars value={review.rating} />
-                    {review.title && (
-                      <h3 className="mt-4 font-serif text-xl">{review.title}</h3>
-                    )}
+                    {review.title && <h3 className="mt-4 font-serif text-xl">{review.title}</h3>}
                     <p className="mt-3 text-sm leading-relaxed text-foreground/80">
                       {review.comment}
                     </p>
@@ -484,5 +541,3 @@ function ProductPage() {
     </div>
   );
 }
-
-
