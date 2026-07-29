@@ -15,6 +15,8 @@ function formatBytes(bytes: number) {
 }
 
 export function MediaLibraryView() {
+  const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+  const maxUploadBytes = 10 * 1024 * 1024;
   const queryClient = useQueryClient();
   const { data: images = [], isLoading, error } = useQuery({
     queryKey: ["admin", "media"],
@@ -22,6 +24,7 @@ export function MediaLibraryView() {
   });
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [operationError, setOperationError] = useState("");
   const visibleImages = images.filter((image) =>
     image.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
@@ -29,10 +32,21 @@ export function MediaLibraryView() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "media"] });
 
   const upload = async (file: File) => {
+    if (!allowedImageTypes.includes(file.type)) {
+      setOperationError("Please upload a JPG, PNG, WebP, or AVIF image.");
+      return;
+    }
+    if (file.size > maxUploadBytes) {
+      setOperationError("Images must be 10 MB or smaller.");
+      return;
+    }
     setBusy(true);
     try {
+      setOperationError("");
       await uploadMediaAsset(file);
       await refresh();
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : "Media upload failed.");
     } finally {
       setBusy(false);
     }
@@ -42,8 +56,11 @@ export function MediaLibraryView() {
     if (!confirm("Delete this media asset from Supabase Storage?")) return;
     setBusy(true);
     try {
+      setOperationError("");
       await deleteMediaAsset(path);
       await refresh();
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : "Media asset could not be deleted.");
     } finally {
       setBusy(false);
     }
@@ -68,14 +85,20 @@ export function MediaLibraryView() {
             className="hidden"
             disabled={busy}
             onChange={(event) => {
-              const file = event.target.files?.[0];
+              const input = event.currentTarget;
+              const file = input.files?.[0];
+              input.value = "";
               if (file) void upload(file);
             }}
           />
         </label>
       </div>
 
-      {error && <p className="text-xs text-red-600">Media assets could not be loaded.</p>}
+      {(error || operationError) && (
+        <p className="text-xs text-red-600">
+          {operationError || "Media assets could not be loaded."}
+        </p>
+      )}
       <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter media by filename..." className="w-full rounded-lg border border-border bg-card p-3 text-xs outline-none focus:border-black" />
 
       {isLoading ? (

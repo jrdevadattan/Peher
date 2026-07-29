@@ -45,6 +45,8 @@ function normalizeMarketingTag(value: string) {
 }
 
 export function ProductsView() {
+  const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+  const maxUploadBytes = 10 * 1024 * 1024;
   const queryClient = useQueryClient();
   const { data: products = [], isLoading, error: loadError } = useQuery({
     queryKey: ["admin", "products"],
@@ -58,8 +60,11 @@ export function ProductsView() {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [previewProduct, setPreviewProduct] = useState<AdminProduct | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [uploadingKind, setUploadingKind] = useState<"primary" | "hover" | null>(null);
   const [operationError, setOperationError] = useState("");
   const [tagDraft, setTagDraft] = useState("");
+  const isEditorBusy = busy || saveBusy || uploadingKind !== null;
 
   const refreshProducts = () =>
     Promise.all([
@@ -171,7 +176,7 @@ export function ProductsView() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    setBusy(true);
+    setSaveBusy(true);
     setOperationError("");
     try {
       await saveProduct(editingProduct);
@@ -181,13 +186,21 @@ export function ProductsView() {
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : "Product could not be saved.");
     } finally {
-      setBusy(false);
+      setSaveBusy(false);
     }
   };
 
   const handleImageUpload = async (file: File, kind: "primary" | "hover") => {
     if (!editingProduct) return;
-    setBusy(true);
+    if (!allowedImageTypes.includes(file.type)) {
+      setOperationError("Please upload a JPG, PNG, WebP, or AVIF image.");
+      return;
+    }
+    if (file.size > maxUploadBytes) {
+      setOperationError("Images must be 10 MB or smaller.");
+      return;
+    }
+    setUploadingKind(kind);
     setOperationError("");
     try {
       const uploaded = await uploadProductImage(
@@ -204,7 +217,7 @@ export function ProductsView() {
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : "Image upload failed.");
     } finally {
-      setBusy(false);
+      setUploadingKind(null);
     }
   };
 
@@ -780,9 +793,11 @@ export function ProductsView() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/avif"
                       className="hidden"
-                      disabled={busy}
+                      disabled={isEditorBusy}
                       onChange={(event) => {
-                        const file = event.target.files?.[0];
+                        const input = event.currentTarget;
+                        const file = input.files?.[0];
+                        input.value = "";
                         if (file) void handleImageUpload(file, "primary");
                       }}
                     />
@@ -793,14 +808,21 @@ export function ProductsView() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/avif"
                       className="hidden"
-                      disabled={busy}
+                      disabled={isEditorBusy}
                       onChange={(event) => {
-                        const file = event.target.files?.[0];
+                        const input = event.currentTarget;
+                        const file = input.files?.[0];
+                        input.value = "";
                         if (file) void handleImageUpload(file, "hover");
                       }}
                     />
                   </label>
                 </div>
+                {uploadingKind && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Uploading {uploadingKind === "primary" ? "primary" : "hover"} image...
+                  </p>
+                )}
                 <div className="flex justify-center gap-3">
                   {editingProduct.image && (
                     <img src={editingProduct.image} alt="" className="w-16 h-20 object-cover rounded border border-border" />
@@ -910,10 +932,10 @@ export function ProductsView() {
                 </button>
                 <button
                   type="submit"
-                  disabled={busy}
+                  disabled={isEditorBusy}
                   className="px-6 py-2.5 bg-neutral-900 text-white rounded-lg text-xs uppercase tracking-wider font-semibold hover:bg-[#D8E7D2] hover:text-black transition disabled:opacity-50"
                 >
-                  {busy ? "Saving..." : "Save Product"}
+                  {saveBusy ? "Saving..." : "Save Product"}
                 </button>
               </div>
             </form>

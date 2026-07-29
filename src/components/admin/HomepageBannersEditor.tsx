@@ -302,7 +302,7 @@ export function HomepageBannersEditor() {
                     <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Banner Image
                     </span>
-                    <span className="flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 transition hover:border-black hover:bg-neutral-50">
+                    <span className="flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 text-xs font-medium text-neutral-900 transition hover:border-black hover:bg-neutral-50">
                       <Upload className="h-4 w-4" />
                       {banner.imagePath ? "Replace image" : "Upload image"}
                       <input
@@ -409,7 +409,7 @@ function BannerField({
         maxLength={maxLength}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-border bg-transparent p-2.5 outline-none focus:border-black"
+        className="w-full rounded-lg border border-border bg-white p-2.5 text-sm text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-black"
       />
     </label>
   );
