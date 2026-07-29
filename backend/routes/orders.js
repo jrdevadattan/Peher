@@ -16,22 +16,34 @@ const orderLimiter = rateLimit({
   message: { error: "Too many order attempts. Please wait a minute and try again." },
 });
 
-function getRazorpay() {
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+function readEnv(name) {
+  return String(process.env[name] || "").trim().replace(/^["']|["']$/g, "");
+}
+
+function getRazorpayCredentials() {
+  const keyId = readEnv("RAZORPAY_KEY_ID");
+  const keySecret = readEnv("RAZORPAY_KEY_SECRET");
+  if (!keyId || !keySecret) {
     throw new Error("Razorpay is not configured on the server.");
   }
+  return { keyId, keySecret };
+}
+
+function getRazorpay() {
+  const { keyId, keySecret } = getRazorpayCredentials();
   return new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: keyId,
+    key_secret: keySecret,
   });
 }
 
 function validSignature(orderId, paymentId, signature) {
+  const { keySecret } = getRazorpayCredentials();
   return verifyPaymentSignature(
     orderId,
     paymentId,
     signature,
-    process.env.RAZORPAY_KEY_SECRET,
+    keySecret,
   );
 }
 
@@ -64,6 +76,7 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
     }
 
     const pricing = await priceCart(items, req.user.id, couponCode);
+    const { keyId } = getRazorpayCredentials();
     const { data: paymentSettings, error: paymentSettingsError } = await supabase
       .from("payment_settings")
       .select("is_enabled, test_mode, automatic_capture")
@@ -72,7 +85,7 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
     if (
       paymentSettingsError ||
       !paymentSettings?.is_enabled ||
-      !keyMatchesMode(process.env.RAZORPAY_KEY_ID, paymentSettings.test_mode)
+      !keyMatchesMode(keyId, paymentSettings.test_mode)
     ) {
       return res.status(503).json({ error: "Online payments are temporarily unavailable." });
     }

@@ -76,6 +76,8 @@ app.use(
 );
 app.use(express.json({ limit: "100kb" }));
 
+app.post("/api/create-order", ...paymentRouter.createOrderMiddlewares);
+app.post("/api/verify-payment", ...paymentRouter.verifyPaymentMiddlewares);
 app.use("/api/orders", ordersRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/catalog", catalogRouter);

@@ -178,6 +178,22 @@ function Checkout() {
     return body;
   };
 
+  const verifyPayment = async (response: RazorpayResponse) => {
+    const res = await fetch(apiUrl("/verify-payment"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(response),
+    });
+
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.verified) {
+      throw new Error(body?.error || "Payment verification failed. Please contact support.");
+    }
+  };
+
   const cartPayload = items.map((item) => ({
     id: item.id,
     size: item.size,
@@ -219,7 +235,7 @@ function Checkout() {
     setSubmitting(true);
 
     try {
-      const orderRes = await fetch(apiUrl("/payment/create-order"), {
+      const orderRes = await fetch(apiUrl("/create-order"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -238,14 +254,19 @@ function Checkout() {
         throw new Error("Secure payment checkout could not load. Please refresh and try again.");
       }
       setPricing(razorpayOrder.pricing);
+      const razorpayOrderId = razorpayOrder.order_id || razorpayOrder.id;
+      const razorpayKeyId = razorpayOrder.checkout?.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!razorpayOrderId || !razorpayKeyId) {
+        throw new Error("Secure payment checkout is not configured. Please try again later.");
+      }
 
       const options: RazorpayOptions = {
-        key: razorpayOrder.checkout.keyId,
+        key: razorpayKeyId,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
         name: "PEHER",
         description: "Order Payment",
-        order_id: razorpayOrder.id,
+        order_id: razorpayOrderId,
         prefill: {
           name: form.fullName,
           email: user?.email || "",
@@ -256,6 +277,7 @@ function Checkout() {
         config: razorpayOrder.checkout.config,
         handler: async (response: RazorpayResponse) => {
           try {
+            await verifyPayment(response);
             await saveOrder(
               response.razorpay_order_id,
               response.razorpay_payment_id,

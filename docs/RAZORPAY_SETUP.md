@@ -14,10 +14,11 @@ Express backend.
 ```env
 RAZORPAY_KEY_ID=rzp_test_replace_me
 RAZORPAY_KEY_SECRET=replace_me
+VITE_RAZORPAY_KEY_ID=rzp_test_replace_me
 ```
 
-The Key Secret must never be added to a `VITE_` variable, frontend environment,
-browser code, Git, or Supabase.
+Only the Key ID may use the `VITE_` prefix. The Key Secret must never be added
+to a `VITE_` variable, browser code, Git, or Supabase.
 
 ## 2. Configure the backend
 
@@ -32,10 +33,35 @@ RAZORPAY_KEY_SECRET=replace_me
 ```
 
 Restart or redeploy the backend after changing environment variables. The
-frontend receives the public Key ID from `POST /api/payment/create-order`; no
-frontend Razorpay environment variable is required.
+frontend receives the public Key ID from `POST /api/create-order`; the
+`VITE_RAZORPAY_KEY_ID` value is only used as a browser fallback and must never
+contain the Key Secret.
 
-## 3. Test checkout
+## 3. Checkout endpoints
+
+The active Standard Checkout flow uses:
+
+```text
+POST /api/create-order
+POST /api/verify-payment
+POST /api/orders
+```
+
+Legacy internal aliases remain available:
+
+```text
+POST /api/payment/create-order
+POST /api/payment/verify
+```
+
+Cart checkout sends cart items to `/api/create-order`; the backend recalculates
+the payable total, validates Razorpay test/live mode, enforces the 100-paise
+minimum, and returns the Razorpay `order_id`. The browser opens Razorpay
+Checkout, then sends `razorpay_order_id`, `razorpay_payment_id`, and
+`razorpay_signature` to `/api/verify-payment` before `/api/orders` finalizes the
+paid order.
+
+## 4. Test checkout
 
 1. Keep **Payments > Test mode** enabled in the PEHER admin panel.
 2. Confirm the admin panel reports **Server credentials configured**.
@@ -46,7 +72,7 @@ frontend Razorpay environment variable is required.
 The backend blocks checkout if a live key is used in test mode, a test key is
 used in live mode, no payment method is enabled, or credentials are missing.
 
-## 4. Go live
+## 5. Go live
 
 1. Complete Razorpay account activation and website verification.
 2. Whitelist the production storefront domain in Razorpay.
