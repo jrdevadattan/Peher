@@ -51,7 +51,7 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <article className="group">
+    <article className="group flex h-full flex-col">
       <Link
         to="/product/$id"
         params={{ id: product.id }}
@@ -102,13 +102,13 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
       </Link>
 
-      <div className="pt-4">
+      <div className="flex flex-1 flex-col pt-4">
         <Link to="/product/$id" params={{ id: product.id }}>
-          <h3 className="font-serif text-xl leading-tight transition-colors duration-300 group-hover:text-[#5b7a52]">
+          <h3 className="min-h-[3.6em] font-serif text-xl leading-[1.2] transition-colors duration-300 group-hover:text-[#5b7a52] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
             {product.name}
           </h3>
         </Link>
-        <div className="mt-2 flex items-baseline gap-2.5">
+        <div className="mt-2 flex min-h-[1.75rem] items-baseline gap-2.5">
           {product.originalPrice && (
             <span className="text-sm text-muted-foreground line-through">
               ₹{product.originalPrice.toLocaleString("en-IN")}
@@ -122,12 +122,12 @@ export function ProductCard({ product }: { product: Product }) {
         {product.outOfStock ? (
           <button
             disabled
-            className="mt-3 w-full bg-black text-white text-[11px] tracking-[0.22em] uppercase font-semibold py-3 rounded-sm opacity-60 cursor-not-allowed"
+            className="mt-auto w-full bg-black text-white text-[11px] tracking-[0.22em] uppercase font-semibold py-3 rounded-sm opacity-60 cursor-not-allowed"
           >
             Out of Stock
           </button>
         ) : cartItem ? (
-          <div className="mt-3 w-full flex items-center justify-between border border-black rounded-sm overflow-hidden">
+          <div className="mt-auto w-full flex items-center justify-between border border-black rounded-sm overflow-hidden">
             <button
               onClick={decrement}
               aria-label="Decrease quantity"
@@ -147,7 +147,7 @@ export function ProductCard({ product }: { product: Product }) {
         ) : (
           <button
             onClick={handleAddToCart}
-            className="mt-3 w-full bg-black text-white text-[11px] tracking-[0.22em] uppercase font-semibold py-3 rounded-sm transition-all duration-300 hover:bg-[#D8E7D2] hover:text-black hover:-translate-y-0.5"
+            className="mt-auto w-full bg-black text-white text-[11px] tracking-[0.22em] uppercase font-semibold py-3 rounded-sm transition-all duration-300 hover:bg-[#D8E7D2] hover:text-black hover:-translate-y-0.5"
           >
             Add to Cart
           </button>
