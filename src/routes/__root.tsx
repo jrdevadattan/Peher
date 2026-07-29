@@ -15,6 +15,13 @@ import { CartProvider } from "../lib/cart-context";
 import { WishlistProvider } from "../lib/wishlist-context";
 import { AuthProvider } from "../lib/auth-context";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { getStorefrontSettings } from "../lib/catalog-api";
+import {
+  absoluteUrl,
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+  serializeJsonLd,
+} from "../lib/seo";
 
 function NotFoundComponent() {
   return (
@@ -77,27 +84,70 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PEHER Extra is our love language." },
-      { name: "description", content: "PEHER by Vasudha Tiwari. Handcrafted luxury jewellery." },
-      { name: "author", content: "PEHER" },
-      { property: "og:title", content: "PEHER Extra is our love language." },
-      { property: "og:description", content: "Handcrafted luxury jewellery by Vasudha Tiwari." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://checkout.razorpay.com" },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600;700&display=swap" },
-    ],
-  }),
+  loader: () => getStorefrontSettings(),
+  head: ({ loaderData: settings, matches }) => {
+    if (!settings) {
+      return {
+        meta: [
+          { charSet: "utf-8" },
+          { name: "viewport", content: "width=device-width, initial-scale=1" },
+          { title: "PEHER | Handcrafted Jewellery" },
+          {
+            name: "description",
+            content: "Discover handcrafted PEHER jewellery, made in India.",
+          },
+        ],
+        links: [{ rel: "stylesheet", href: appCss }],
+      };
+    }
+    const pathname = matches.at(-1)?.pathname ?? "/";
+    const isPrivateRoute = /^\/(admin|dashboard|checkout|cart|wishlist|login|signup)(\/|$)/.test(
+      pathname,
+    );
+    const canonical = absoluteUrl(settings, pathname === "/" ? "" : pathname);
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: settings.metaTitle },
+        { name: "description", content: settings.metaDescription },
+        { name: "author", content: "PEHER" },
+        {
+          name: "robots",
+          content: isPrivateRoute ? "noindex,nofollow" : "index,follow,max-image-preview:large",
+        },
+        { property: "og:title", content: settings.metaTitle },
+        { property: "og:description", content: settings.metaDescription },
+        { property: "og:type", content: "website" },
+        { property: "og:site_name", content: settings.storeName },
+        { property: "og:url", content: canonical },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+      links: [
+        ...(!isPrivateRoute ? [{ rel: "canonical", href: canonical }] : []),
+        { rel: "stylesheet", href: appCss },
+        { rel: "preconnect", href: "https://checkout.razorpay.com" },
+        { rel: "icon", href: "/peher-mark.svg", type: "image/svg+xml" },
+        { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600;700&display=swap",
+        },
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: serializeJsonLd(buildOrganizationJsonLd(settings)),
+        },
+        {
+          type: "application/ld+json",
+          children: serializeJsonLd(buildWebsiteJsonLd(settings)),
+        },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -121,18 +171,45 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const settings = Route.useLoaderData();
+  const router = useRouter();
+  const isAdminRoute = router.state.location.pathname.startsWith("/admin");
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const application = (
+    <AuthProvider>
+      <CartProvider>
+        <WishlistProvider>
+          {settings?.maintenanceMode && !isAdminRoute ? (
+            <main className="grid min-h-screen place-items-center bg-[#f4f1e9] px-6 text-center">
+              <div className="max-w-lg">
+                <img src="/peher-mark.svg" alt="Peher" className="mx-auto h-20 w-20 rounded-2xl" />
+                <p className="mt-8 text-[10px] font-semibold uppercase tracking-[0.35em] text-neutral-500">
+                  Atelier update in progress
+                </p>
+                <h1 className="mt-4 font-serif text-5xl text-neutral-900">
+                  We will be back shortly.
+                </h1>
+                <p className="mt-4 text-sm leading-relaxed text-neutral-600">
+                  The Peher atelier is receiving a careful update. For urgent assistance, contact{" "}
+                  {settings.contactEmail}.
+                </p>
+              </div>
+            </main>
+          ) : (
+            <Outlet />
+          )}
+        </WishlistProvider>
+      </CartProvider>
+    </AuthProvider>
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || "placeholder-client-id"}>
-        <AuthProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <Outlet />
-            </WishlistProvider>
-          </CartProvider>
-        </AuthProvider>
-      </GoogleOAuthProvider>
+      {googleClientId ? (
+        <GoogleOAuthProvider clientId={googleClientId}>{application}</GoogleOAuthProvider>
+      ) : (
+        application
+      )}
     </QueryClientProvider>
   );
 }

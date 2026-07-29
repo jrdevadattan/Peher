@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { AdminStore } from "@/lib/admin-store";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAdminProducts } from "@/lib/catalog-api";
+import { getAdminCustomers, getAdminOrders } from "@/lib/admin-api";
 import {
   TrendingUp,
   ShoppingBag,
@@ -25,36 +27,70 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-
-const revenueData = [
-  { date: "Jul 21", revenue: 14200, orders: 4 },
-  { date: "Jul 22", revenue: 18500, orders: 6 },
-  { date: "Jul 23", revenue: 12100, orders: 3 },
-  { date: "Jul 24", revenue: 24800, orders: 8 },
-  { date: "Jul 25", revenue: 31000, orders: 11 },
-  { date: "Jul 26", revenue: 22400, orders: 7 },
-  { date: "Jul 27", revenue: 29500, orders: 9 },
-  { date: "Jul 28", revenue: 36200, orders: 12 },
-];
-
-const categoryShare = [
-  { name: "Rings", sales: 48500 },
-  { name: "Necklaces", sales: 39200 },
-  { name: "Bracelets", sales: 26100 },
-  { name: "Earrings", sales: 31800 },
-];
+import { AdminOverviewSkeleton } from "@/components/loading-skeletons";
 
 export function OverviewView({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const [timeframe, setTimeframe] = useState<"7d" | "30d" | "ytd">("7d");
-  const products = AdminStore.products;
-  const orders = AdminStore.orders;
-  const customers = AdminStore.customers;
+  const { data: products = [], isLoading: productsLoading } = useQuery({
+    queryKey: ["admin", "products"],
+    queryFn: getAdminProducts,
+  });
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: ["admin", "orders"],
+    queryFn: getAdminOrders,
+  });
+  const { data: customers = [], isLoading: customersLoading } = useQuery({
+    queryKey: ["admin", "customers"],
+    queryFn: getAdminCustomers,
+  });
+
+  const revenueData = useMemo(() => {
+    const days = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 365;
+    return Array.from({ length: days }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (days - index - 1));
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const matching = orders.filter((order) => {
+        const orderDate = new Date(order.orderDate);
+        return orderDate >= date && orderDate < nextDate;
+      });
+      return {
+        date: date.toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+        revenue: matching.reduce((sum, order) => sum + order.total, 0),
+        orders: matching.length,
+      };
+    });
+  }, [orders, timeframe]);
+
+  const categoryShare = useMemo(() => {
+    const categoryByProductId = new Map(
+      products.map((product) => [product.databaseId, product.category]),
+    );
+    const totals = new Map<string, number>();
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        const category = categoryByProductId.get(item.productId) ?? "Other";
+        totals.set(category, (totals.get(category) ?? 0) + item.price * item.qty);
+      });
+    });
+    return Array.from(totals, ([name, sales]) => ({ name, sales }));
+  }, [orders, products]);
+  const topCategory = categoryShare.reduce(
+    (top, category) => (category.sales > top.sales ? category : top),
+    { name: "No sales yet", sales: 0 },
+  );
 
   const totalSales = orders.reduce((sum, o) => sum + o.total, 0);
   const pendingOrders = orders.filter((o) => o.deliveryStatus === "Pending" || o.deliveryStatus === "Confirmed").length;
   const completedOrders = orders.filter((o) => o.deliveryStatus === "Delivered").length;
   const lowStockProducts = products.filter((p) => p.stock > 0 && p.stock <= 10);
   const outOfStockProducts = products.filter((p) => p.stock === 0 || p.outOfStock);
+
+  if (productsLoading || ordersLoading || customersLoading) {
+    return <AdminOverviewSkeleton />;
+  }
 
   return (
     <div className="space-[#1a1a1a] space-y-8 fade-up">
@@ -100,15 +136,15 @@ export function OverviewView({ onNavigate }: { onNavigate: (tab: string) => void
         <KPICard
           title="Total Revenue"
           value={`₹${totalSales.toLocaleString("en-IN")}`}
-          change="+18.4%"
+          change="Live"
           isPositive={true}
           icon={DollarSign}
-          subtext="vs previous period"
+          subtext="Across all Supabase orders"
         />
         <KPICard
           title="Total Orders"
           value={orders.length.toString()}
-          change="+12.2%"
+          change="Live"
           isPositive={true}
           icon={ShoppingBag}
           subtext={`${pendingOrders} pending delivery`}
@@ -116,7 +152,7 @@ export function OverviewView({ onNavigate }: { onNavigate: (tab: string) => void
         <KPICard
           title="Total Customers"
           value={customers.length.toString()}
-          change="+8.5%"
+          change="Live"
           isPositive={true}
           icon={Users}
           subtext="Active buyer profiles"
@@ -186,7 +222,9 @@ export function OverviewView({ onNavigate }: { onNavigate: (tab: string) => void
           </div>
           <div className="pt-4 border-t border-border flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Top Category</span>
-            <span className="font-semibold">Rings (₹48,500)</span>
+            <span className="font-semibold">
+              {topCategory.name} (₹{topCategory.sales.toLocaleString("en-IN")})
+            </span>
           </div>
         </div>
       </div>

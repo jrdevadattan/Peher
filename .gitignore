@@ -2,5 +2,7 @@
 .env
 dist/
 .vite/
+.output/
+.wrangler/
 backend/.env
 .env.local

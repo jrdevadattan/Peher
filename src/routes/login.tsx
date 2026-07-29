@@ -8,7 +8,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, googleAuthEnabled } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,28 +74,32 @@ function LoginPage() {
           </button>
         </form>
 
-        <div className="my-6 flex items-center gap-4">
-          <div className="h-px flex-1 bg-input" />
-          <span className="text-xs text-muted-foreground">OR</span>
-          <div className="h-px flex-1 bg-input" />
-        </div>
+        {googleAuthEnabled && (
+          <>
+            <div className="my-6 flex items-center gap-4">
+              <div className="h-px flex-1 bg-input" />
+              <span className="text-xs text-muted-foreground">OR</span>
+              <div className="h-px flex-1 bg-input" />
+            </div>
 
-        <div className="flex justify-center">
-          <GoogleLogin
-            onSuccess={(res) => {
-              if (res.credential) {
-                loginWithGoogle(res.credential)
-                  .then(() => {
-                    const redirectTo = sessionStorage.getItem("post-login-redirect");
-                    sessionStorage.removeItem("post-login-redirect");
-                    navigate({ to: redirectTo || "/dashboard" });
-                  })
-                  .catch((err) => setError(err.message));
-              }
-            }}
-            onError={() => setError("Google sign-in failed")}
-          />
-        </div>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={(res) => {
+                  if (res.credential) {
+                    loginWithGoogle(res.credential)
+                      .then(() => {
+                        const redirectTo = sessionStorage.getItem("post-login-redirect");
+                        sessionStorage.removeItem("post-login-redirect");
+                        navigate({ to: redirectTo || "/dashboard" });
+                      })
+                      .catch(() => setError("Google sign-in could not be completed."));
+                  }
+                }}
+                onError={() => setError("Google sign-in failed")}
+              />
+            </div>
+          </>
+        )}
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
@@ -107,5 +111,3 @@ function LoginPage() {
     </div>
   );
 }
-
-

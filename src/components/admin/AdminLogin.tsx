@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useAdminAuth } from "@/lib/admin-auth-context";
 import { Eye, EyeOff, Lock, Mail, ShieldAlert, Sparkles, X } from "lucide-react";
+import { PeherLogo } from "@/components/PeherLogo";
 
 export function AdminLogin() {
-  const { login, lockoutRemainingSeconds, failedAttempts } = useAdminAuth();
-  const [email, setEmail] = useState("admin@peher.studio");
-  const [password, setPassword] = useState("admin123");
+  const { login, requestPasswordReset, lockoutRemainingSeconds } = useAdminAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -20,8 +21,8 @@ export function AdminLogin() {
 
     try {
       await login(email, password, rememberMe);
-    } catch (err: any) {
-      setError(err.message || "Authentication failed.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Authentication failed.");
     } finally {
       setLoading(false);
     }
@@ -39,8 +40,10 @@ export function AdminLogin() {
           <div className="inline-flex items-center gap-1.5 text-[10px] tracking-[0.3em] uppercase text-[#D8E7D2] font-semibold mb-2">
             <Sparkles className="w-3.5 h-3.5" /> PEHER Atelier Portal
           </div>
-          <h1 className="font-serif text-4xl tracking-[0.25em] text-white">PEHER</h1>
-          <p className="text-[9px] tracking-[0.3em] text-neutral-400 mt-1 uppercase">Executive Administration</p>
+          <PeherLogo tone="light" className="mx-auto h-12 w-52" />
+          <p className="text-[9px] tracking-[0.3em] text-neutral-400 mt-1 uppercase">
+            Executive Administration
+          </p>
         </div>
 
         {/* Lockout Warning Banner */}
@@ -49,7 +52,9 @@ export function AdminLogin() {
             <ShieldAlert className="w-5 h-5 shrink-0" />
             <div>
               <p className="font-semibold">Security Rate Limit Active</p>
-              <p className="text-[11px] opacity-90">Account locked. Please try again in {lockoutRemainingSeconds}s.</p>
+              <p className="text-[11px] opacity-90">
+                Account locked. Please try again in {lockoutRemainingSeconds}s.
+              </p>
             </div>
           </div>
         )}
@@ -99,7 +104,7 @@ export function AdminLogin() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder="Enter your password"
                 className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder:text-neutral-600 outline-none focus:border-[#D8E7D2] transition"
               />
               <button
@@ -122,7 +127,7 @@ export function AdminLogin() {
               />
               <span>Remember Me</span>
             </label>
-            <span className="text-[10px] text-neutral-500">2FA Supported</span>
+            <span className="text-[10px] text-neutral-500">Protected by Supabase Auth</span>
           </div>
 
           <button
@@ -133,36 +138,38 @@ export function AdminLogin() {
             {loading ? "Authenticating..." : "Sign In to Admin Console"}
           </button>
         </form>
-
-        {/* Evaluation Hint */}
-        <div className="pt-4 border-t border-white/10 text-center text-[11px] text-neutral-400">
-          <p className="font-semibold text-neutral-300">Demo Administrative Credentials:</p>
-          <p className="mt-1 font-mono text-[10px] text-[#D8E7D2]">
-            Email: <span className="underline">admin@peher.studio</span> · Password: <span className="underline">admin123</span>
-          </p>
-        </div>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-white/15 p-6 rounded-2xl max-w-sm w-full space-y-4 relative text-white">
-            <button onClick={() => setShowForgotModal(false)} className="absolute top-4 right-4 text-neutral-400 hover:text-white">
+            <button
+              onClick={() => setShowForgotModal(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white"
+            >
               <X className="w-5 h-5" />
             </button>
             <h3 className="font-serif text-2xl">Reset Administrator Password</h3>
             <p className="text-xs text-neutral-400 leading-relaxed">
-              Enter your registered PEHER admin email to receive a secure password recovery token link.
+              Enter your registered PEHER admin email to receive a secure password recovery token
+              link.
             </p>
             {forgotSent ? (
               <p className="text-xs text-emerald-400 font-semibold p-3 bg-emerald-500/10 rounded-lg">
-                ✓ Password reset instructions sent to {email}.
+                Password reset instructions sent to {email}.
               </p>
             ) : (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  setForgotSent(true);
+                  setError(null);
+                  try {
+                    await requestPasswordReset(email);
+                    setForgotSent(true);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Could not send reset email.");
+                  }
                 }}
                 className="space-y-3"
               >

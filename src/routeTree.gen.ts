@@ -19,11 +19,14 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MerchantFeedDotxmlRouteImport } from './routes/merchant-feed[.]xml'
 import { Route as NewArrivalsRouteImport } from './routes/new-arrivals'
 import { Route as ReturnsRouteImport } from './routes/returns'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SizeGuideRouteImport } from './routes/size-guide'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
@@ -78,6 +81,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MerchantFeedDotxmlRoute = MerchantFeedDotxmlRouteImport.update({
+  id: '/merchant-feed.xml',
+  path: '/merchant-feed.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NewArrivalsRoute = NewArrivalsRouteImport.update({
   id: '/new-arrivals',
   path: '/new-arrivals',
@@ -86,6 +94,11 @@ const NewArrivalsRoute = NewArrivalsRouteImport.update({
 const ReturnsRoute = ReturnsRouteImport.update({
   id: '/returns',
   path: '/returns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShippingRoute = ShippingRouteImport.update({
@@ -101,6 +114,11 @@ const ShopRoute = ShopRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SizeGuideRoute = SizeGuideRouteImport.update({
@@ -130,11 +148,14 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
+  '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
   '/returns': typeof ReturnsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/size-guide': typeof SizeGuideRoute
   '/wishlist': typeof WishlistRoute
   '/product/$id': typeof ProductIdRoute
@@ -150,11 +171,14 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
+  '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
   '/returns': typeof ReturnsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/size-guide': typeof SizeGuideRoute
   '/wishlist': typeof WishlistRoute
   '/product/$id': typeof ProductIdRoute
@@ -171,11 +195,14 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
+  '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
   '/returns': typeof ReturnsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/size-guide': typeof SizeGuideRoute
   '/wishlist': typeof WishlistRoute
   '/product/$id': typeof ProductIdRoute
@@ -193,11 +220,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/journal'
     | '/login'
+    | '/merchant-feed.xml'
     | '/new-arrivals'
     | '/returns'
+    | '/robots.txt'
     | '/shipping'
     | '/shop'
     | '/signup'
+    | '/sitemap.xml'
     | '/size-guide'
     | '/wishlist'
     | '/product/$id'
@@ -213,11 +243,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/journal'
     | '/login'
+    | '/merchant-feed.xml'
     | '/new-arrivals'
     | '/returns'
+    | '/robots.txt'
     | '/shipping'
     | '/shop'
     | '/signup'
+    | '/sitemap.xml'
     | '/size-guide'
     | '/wishlist'
     | '/product/$id'
@@ -233,11 +266,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/journal'
     | '/login'
+    | '/merchant-feed.xml'
     | '/new-arrivals'
     | '/returns'
+    | '/robots.txt'
     | '/shipping'
     | '/shop'
     | '/signup'
+    | '/sitemap.xml'
     | '/size-guide'
     | '/wishlist'
     | '/product/$id'
@@ -254,11 +290,14 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
+  MerchantFeedDotxmlRoute: typeof MerchantFeedDotxmlRoute
   NewArrivalsRoute: typeof NewArrivalsRoute
   ReturnsRoute: typeof ReturnsRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SizeGuideRoute: typeof SizeGuideRoute
   WishlistRoute: typeof WishlistRoute
   ProductIdRoute: typeof ProductIdRoute
@@ -336,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/merchant-feed.xml': {
+      id: '/merchant-feed.xml'
+      path: '/merchant-feed.xml'
+      fullPath: '/merchant-feed.xml'
+      preLoaderRoute: typeof MerchantFeedDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/new-arrivals': {
       id: '/new-arrivals'
       path: '/new-arrivals'
@@ -348,6 +394,13 @@ declare module '@tanstack/react-router' {
       path: '/returns'
       fullPath: '/returns'
       preLoaderRoute: typeof ReturnsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shipping': {
@@ -369,6 +422,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/size-guide': {
@@ -406,11 +466,14 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
+  MerchantFeedDotxmlRoute: MerchantFeedDotxmlRoute,
   NewArrivalsRoute: NewArrivalsRoute,
   ReturnsRoute: ReturnsRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SizeGuideRoute: SizeGuideRoute,
   WishlistRoute: WishlistRoute,
   ProductIdRoute: ProductIdRoute,

@@ -1,25 +1,17 @@
 ﻿import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { Minus, Plus, Heart } from "lucide-react";
-
-export type Product = {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  material: string;
-  image: string;
-  imageHover?: string;
-  badge?: string;
-  outOfStock?: boolean;
-};
+import type { Product } from "@/lib/catalog-api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ProductCard({ product }: { product: Product }) {
   const { items, addItem, updateQty, removeItem } = useCart();
   const { isWishlisted, toggleItem } = useWishlist();
   const cartItem = items.find((i) => i.id === product.id && i.size === null);
   const liked = isWishlisted(product.id);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const save =
     product.originalPrice && product.originalPrice > product.price
@@ -59,11 +51,15 @@ export function ProductCard({ product }: { product: Product }) {
         params={{ id: product.id }}
         className="block relative overflow-hidden bg-[#D8E7D2]/20 aspect-[4/5] rounded-md border border-black/[0.06] shadow-[var(--shadow-soft)] transition-all duration-500 group-hover:shadow-[var(--shadow-luxe)] group-hover:border-[#D8E7D2]"
       >
+        {!imageLoaded && <Skeleton className="absolute inset-0 rounded-none" />}
         <img
           src={product.image}
           alt={product.name}
           loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
+          onLoad={() => setImageLoaded(true)}
+          className={`w-full h-full object-cover transition-all duration-[1200ms] ease-out group-hover:scale-[1.04] ${
+            imageLoaded ? "opacity-100" : "opacity-0"
+          }`}
         />
         {product.imageHover && (
           <img

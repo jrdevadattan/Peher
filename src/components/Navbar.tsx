@@ -3,7 +3,8 @@ import { Search, User, ShoppingBag, Menu, X, ChevronDown, Heart } from "lucide-r
 import { useEffect, useState } from "react";
 import { useWishlist } from "@/lib/wishlist-context";
 import { useAuth } from "@/lib/auth-context";
-import { products } from "@/data/products";
+import { useProducts } from "@/lib/use-catalog";
+import { PeherLogo } from "@/components/PeherLogo";
 
 const primaryLinks = [
   { to: "/", label: "Home" },
@@ -29,6 +30,7 @@ export function Navbar() {
   const navigate = useNavigate();
   const { count: wishlistCount } = useWishlist();
   const { user } = useAuth();
+  const { data: products = [] } = useProducts();
 
   const results = query.trim()
     ? products.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6)
@@ -67,7 +69,7 @@ export function Navbar() {
         {/* Wordmark row */}
         <div className="container-luxe pt-4 pb-2 flex items-center justify-center border-b border-black/5">
           <Link to="/" className="text-center select-none">
-            <div className="font-serif text-3xl md:text-[32px] tracking-[0.42em] bg-gradient-to-r from-black via-neutral-700 to-black bg-clip-text text-transparent">PEHER</div>
+            <PeherLogo className="mx-auto h-10 w-44 md:w-52" />
             <div className="text-[9px] tracking-[0.32em] text-muted-foreground mt-0.5">
               BY VASUDHA TIWARI
             </div>
@@ -88,9 +90,6 @@ export function Navbar() {
                 }`}
               >
                 {l.label}
-                {"hasCaret" in l && l.hasCaret && (
-                  <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.5} />
-                )}
               </Link>
             ))}
           </nav>
@@ -181,7 +180,7 @@ export function Navbar() {
       {open && (
         <div className="fixed inset-0 bg-white z-[60] lg:hidden">
           <div className="flex items-center justify-between px-6 py-6 border-b border-black/5">
-            <span className="font-serif text-xl tracking-[0.32em]">PEHER</span>
+            <PeherLogo className="h-8 w-32" />
             <button onClick={() => setOpen(false)} aria-label="Close">
               <X className="w-5 h-5" strokeWidth={1.5} />
             </button>

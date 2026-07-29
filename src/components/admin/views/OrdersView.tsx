@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { AdminStore, type AdminOrder } from "@/lib/admin-store";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAdminOrders, updateOrderStatus, type AdminOrder } from "@/lib/admin-api";
 import {
   Search,
   Printer,
@@ -16,9 +17,14 @@ import {
   Clock,
   Sparkles,
 } from "lucide-react";
+import { AdminTableRowsSkeleton } from "@/components/loading-skeletons";
 
 export function OrdersView() {
-  const [orders, setOrders] = useState<AdminOrder[]>(AdminStore.orders);
+  const queryClient = useQueryClient();
+  const { data: orders = [], isLoading, error } = useQuery({
+    queryKey: ["admin", "orders"],
+    queryFn: getAdminOrders,
+  });
   const [activeTab, setActiveTab] = useState<string>("All");
   const [query, setQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
@@ -33,21 +39,23 @@ export function OrdersView() {
     return matchesTab && matchesSearch;
   });
 
-  const handleUpdateStatus = (orderId: string, newStatus: AdminOrder["deliveryStatus"]) => {
-    const updated = orders.map((o) => {
-      if (o.id === orderId) {
-        const newTimeline = [
-          ...o.timeline,
-          { title: `Status updated to ${newStatus}`, timestamp: new Date().toISOString() },
-        ];
-        return { ...o, deliveryStatus: newStatus, timeline: newTimeline };
-      }
-      return o;
-    });
-    setOrders(updated);
-    AdminStore.orders = updated;
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(updated.find((o) => o.id === orderId) || null);
+  const handleUpdateStatus = async (
+    orderId: string,
+    newStatus: AdminOrder["deliveryStatus"],
+  ) => {
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) return;
+    await updateOrderStatus(order, newStatus);
+    await queryClient.invalidateQueries({ queryKey: ["admin", "orders"] });
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder({
+        ...selectedOrder,
+        deliveryStatus: newStatus,
+        timeline: [
+          ...selectedOrder.timeline,
+          { title: `Status changed to ${newStatus}`, timestamp: new Date().toISOString() },
+        ],
+      });
     }
   };
 
@@ -55,6 +63,7 @@ export function OrdersView() {
 
   return (
     <div className="space-y-6 fade-up">
+      {error && <p className="text-xs text-red-600">Orders could not be loaded.</p>}
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -114,7 +123,9 @@ export function OrdersView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <AdminTableRowsSkeleton columns={7} rows={7} />
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">
                     No orders match your filter criteria.

@@ -1,9 +1,19 @@
 import { useState } from "react";
-import { AdminStore, type AdminCustomer } from "@/lib/admin-store";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getAdminCustomers,
+  updateCustomerStatus,
+  type AdminCustomer,
+} from "@/lib/admin-api";
 import { Search, UserCheck, ShieldAlert, Download, X, ShoppingBag } from "lucide-react";
+import { AdminTableRowsSkeleton } from "@/components/loading-skeletons";
 
 export function CustomersView() {
-  const [customers, setCustomers] = useState<AdminCustomer[]>(AdminStore.customers);
+  const queryClient = useQueryClient();
+  const { data: customers = [], isLoading, error } = useQuery({
+    queryKey: ["admin", "customers"],
+    queryFn: getAdminCustomers,
+  });
   const [query, setQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<AdminCustomer | null>(null);
 
@@ -14,16 +24,19 @@ export function CustomersView() {
       c.phone.toLowerCase().includes(query.toLowerCase())
   );
 
-  const handleToggleStatus = (id: string) => {
-    const updated = customers.map((c) =>
-      c.id === id ? { ...c, status: (c.status === "Active" ? "Blocked" : "Active") as any } : c
+  const handleToggleStatus = async (id: string) => {
+    const customer = customers.find((item) => item.id === id);
+    if (!customer) return;
+    await updateCustomerStatus(
+      customer,
+      customer.status === "Active" ? "Blocked" : "Active",
     );
-    setCustomers(updated);
-    AdminStore.customers = updated;
+    await queryClient.invalidateQueries({ queryKey: ["admin", "customers"] });
   };
 
   return (
     <div className="space-y-6 fade-up">
+      {error && <p className="text-xs text-red-600">Customers could not be loaded.</p>}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl md:text-4xl tracking-tight">Customer Directory</h1>
@@ -61,7 +74,15 @@ export function CustomersView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((c) => (
+              {isLoading ? (
+                <AdminTableRowsSkeleton columns={7} rows={7} />
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-sm text-muted-foreground">
+                    No customer accounts match this search.
+                  </td>
+                </tr>
+              ) : filtered.map((c) => (
                 <tr key={c.id} className="hover:bg-muted/30 transition">
                   <td className="p-4 font-medium">
                     <p className="font-semibold text-xs text-foreground">{c.name}</p>

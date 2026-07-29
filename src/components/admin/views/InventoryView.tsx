@@ -1,21 +1,30 @@
 import { useState } from "react";
-import { AdminStore } from "@/lib/admin-store";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAdminProducts, updateProductStock } from "@/lib/catalog-api";
 import { Package, AlertTriangle, RefreshCw, Warehouse } from "lucide-react";
+import { AdminTableRowsSkeleton } from "@/components/loading-skeletons";
 
 export function InventoryView() {
-  const [products, setProducts] = useState(AdminStore.products);
+  const queryClient = useQueryClient();
+  const { data: products = [], isLoading, error } = useQuery({
+    queryKey: ["admin", "products"],
+    queryFn: getAdminProducts,
+  });
+  const [busyId, setBusyId] = useState("");
 
-  const handleAdjustStock = (id: string, delta: number) => {
-    const updated = products.map((p) => {
-      if (p.id === id) {
-        const newStock = Math.max(0, p.stock + delta);
-        return { ...p, stock: newStock, outOfStock: newStock === 0 };
-      }
-      return p;
-    });
-    setProducts(updated);
-    AdminStore.products = updated;
-    AdminStore.logAction("Vasudha Tiwari", "Owner", "Stock Adjustment", `Adjusted stock for product ID ${id}`);
+  const handleAdjustStock = async (id: string, delta: number) => {
+    const product = products.find((item) => item.id === id);
+    if (!product) return;
+    setBusyId(id);
+    try {
+      await updateProductStock(product, delta);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalog"] }),
+      ]);
+    } finally {
+      setBusyId("");
+    }
   };
 
   return (
@@ -26,6 +35,7 @@ export function InventoryView() {
           Monitor stock levels across atelier vaults, supplier reorders, and stock movements.
         </p>
       </div>
+      {error && <p className="text-xs text-red-600">Inventory could not be loaded.</p>}
 
       <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
         <div className="p-4 border-b border-border font-serif text-xl font-medium">Stock Matrix</div>
@@ -41,7 +51,15 @@ export function InventoryView() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {products.map((p) => (
+            {isLoading ? (
+              <AdminTableRowsSkeleton columns={6} rows={7} />
+            ) : products.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-sm text-muted-foreground">
+                  No inventory items have been created.
+                </td>
+              </tr>
+            ) : products.map((p) => (
               <tr key={p.id} className="hover:bg-muted/30">
                 <td className="p-4 font-semibold">{p.name}</td>
                 <td className="p-4 font-mono text-[11px]">{p.sku}</td>
@@ -64,12 +82,14 @@ export function InventoryView() {
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => handleAdjustStock(p.id, -5)}
+                      disabled={busyId === p.id}
                       className="px-2.5 py-1 border border-border rounded hover:bg-neutral-200 font-bold"
                     >
                       -5
                     </button>
                     <button
                       onClick={() => handleAdjustStock(p.id, 5)}
+                      disabled={busyId === p.id}
                       className="px-2.5 py-1 border border-border rounded hover:bg-neutral-200 font-bold text-emerald-700"
                     >
                       +5

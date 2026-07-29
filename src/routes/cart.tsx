@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { X } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/cart")({
   component: Cart,
@@ -12,6 +13,43 @@ export const Route = createFileRoute("/cart")({
 function Cart() {
   const { items, removeItem, updateQty, subtotal } = useCart();
   const navigate = useNavigate();
+  const [couponCode, setCouponCode] = useState("");
+  const [pricing, setPricing] = useState<{ shippingCost: number; taxAmount: number; total: number } | null>(null);
+
+  useEffect(() => {
+    if (!items.length) {
+      setPricing(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/catalog/pricing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((item) => ({ id: item.id, size: item.size, qty: item.qty })),
+      }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || "Could not calculate pricing.");
+        setPricing(body);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setPricing(null);
+      });
+    return () => controller.abort();
+  }, [items]);
+
+  const proceedToCheckout = () => {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    if (normalizedCode) {
+      sessionStorage.setItem("peher-coupon-code", normalizedCode);
+    } else {
+      sessionStorage.removeItem("peher-coupon-code");
+    }
+    navigate({ to: "/checkout" });
+  };
 
   return (
     <div className="bg-white">
@@ -24,7 +62,10 @@ function Cart() {
       {items.length === 0 ? (
         <div className="container-luxe pb-32 text-center py-24">
           <p className="font-serif text-2xl">Your bag is empty.</p>
-          <Link to="/shop" className="mt-6 inline-block text-[11px] tracking-[0.22em] uppercase font-semibold underline underline-offset-4">
+          <Link
+            to="/shop"
+            className="mt-6 inline-block text-[11px] tracking-[0.22em] uppercase font-semibold underline underline-offset-4"
+          >
             Continue Shopping
           </Link>
         </div>
@@ -39,7 +80,10 @@ function Cart() {
                 <div className="flex-1 flex flex-col">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="eyebrow">{i.material}{i.size ? ` · Size ${i.size}` : ""}</p>
+                      <p className="eyebrow">
+                        {i.material}
+                        {i.size ? ` · Size ${i.size}` : ""}
+                      </p>
                       <h3 className="font-serif text-2xl mt-1">{i.name}</h3>
                     </div>
                     <button aria-label="Remove" onClick={() => removeItem(i.id, i.size)}>
@@ -48,9 +92,19 @@ function Cart() {
                   </div>
                   <div className="mt-auto flex items-end justify-between">
                     <div className="flex items-center border border-black/15">
-                      <button onClick={() => updateQty(i.id, i.size, i.qty - 1)} className="w-9 h-9">−</button>
+                      <button
+                        onClick={() => updateQty(i.id, i.size, i.qty - 1)}
+                        className="w-9 h-9"
+                      >
+                        −
+                      </button>
                       <span className="w-8 text-center text-sm">{i.qty}</span>
-                      <button onClick={() => updateQty(i.id, i.size, i.qty + 1)} className="w-9 h-9">+</button>
+                      <button
+                        onClick={() => updateQty(i.id, i.size, i.qty + 1)}
+                        className="w-9 h-9"
+                      >
+                        +
+                      </button>
                     </div>
                     <p className="text-sm">₹{(i.price * i.qty).toLocaleString("en-IN")}</p>
                   </div>
@@ -63,23 +117,49 @@ function Cart() {
               <h2 className="font-serif text-3xl">Order Summary</h2>
               <dl className="mt-8 space-y-4 text-sm">
                 <Row k="Subtotal" v={`₹${subtotal.toLocaleString("en-IN")}`} />
-                <Row k="Shipping" v="Complimentary" />
-                <Row k="Estimated Tax" v="Calculated at checkout" />
+                <Row k="Shipping" v={pricing ? (pricing.shippingCost ? `₹${pricing.shippingCost.toLocaleString("en-IN")}` : "Complimentary") : "Calculating..."} />
+                <Row k="Tax included" v={pricing ? `₹${pricing.taxAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "Calculating..."} />
               </dl>
               <div className="border-t border-black/10 mt-6 pt-6 flex items-center justify-between">
                 <span className="eyebrow !text-foreground">Total</span>
-                <span className="font-serif text-2xl">₹{subtotal.toLocaleString("en-IN")}</span>
+                <span className="font-serif text-2xl">₹{(pricing?.total ?? subtotal).toLocaleString("en-IN")}</span>
               </div>
-              <input placeholder="Gift code" className="mt-6 w-full px-4 py-3 border border-black/10 bg-white text-sm outline-none focus:border-black" />
-              <button onClick={() => navigate({ to: "/checkout" })} className="btn-peher w-full mt-5">
+              <label
+                htmlFor="cart-coupon"
+                className="mt-6 block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Have a coupon?
+              </label>
+              <input
+                id="cart-coupon"
+                value={couponCode}
+                onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                maxLength={32}
+                autoComplete="off"
+                placeholder="Coupon code"
+                className="mt-2 w-full border border-black/10 bg-white px-4 py-3 text-sm uppercase outline-none focus:border-black"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Your code is securely validated at checkout.
+              </p>
+              <button onClick={proceedToCheckout} className="btn-peher w-full mt-5">
                 Proceed to Checkout
               </button>
               <div className="mt-6 flex items-center justify-center gap-5 text-[10px] tracking-[0.24em] uppercase text-muted-foreground">
-                <span>Secure Checkout</span><span>·</span><span>Free Returns</span><span>·</span><span>Lifetime Care</span>
+                <span>Secure Checkout</span>
+                <span>·</span>
+                <span>Free Returns</span>
+                <span>·</span>
+                <span>Lifetime Care</span>
               </div>
             </div>
             <div className="text-center mt-6">
-              <Link to="/shop" className="text-[11px] tracking-[0.2em] uppercase border-b border-black pb-1">Continue Shopping</Link>
+              <Link
+                to="/shop"
+                className="text-[11px] tracking-[0.2em] uppercase border-b border-black pb-1"
+              >
+                Continue Shopping
+              </Link>
             </div>
           </aside>
         </div>
@@ -97,4 +177,3 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
-

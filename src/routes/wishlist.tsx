@@ -2,8 +2,8 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
-import { products } from "@/data/products";
 import { useWishlist } from "@/lib/wishlist-context";
+import { useProducts } from "@/lib/use-catalog";
 
 export const Route = createFileRoute("/wishlist")({
   component: Wishlist,
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/wishlist")({
 
 function Wishlist() {
   const { items } = useWishlist();
+  const { data: products = [] } = useProducts();
   const wishlistedProducts = products.filter((p) => items.includes(p.id));
 
   return (

@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { Instagram } from "lucide-react";
+import { PeherLogo } from "@/components/PeherLogo";
 
 export function Footer() {
   return (
     <footer className="bg-[#0f0f0f] text-white/80 mt-32">
       <div className="container-luxe py-20 grid grid-cols-2 md:grid-cols-4 gap-12">
         <div className="col-span-2 md:col-span-1">
-          <div className="font-serif text-3xl tracking-[0.3em] text-white">PEHER</div>
+          <PeherLogo tone="light" className="h-10 w-40" />
           <p className="text-[10px] tracking-[0.28em] mt-2 text-white/60">BY VASUDHA TIWARI</p>
           <p className="mt-8 text-sm font-serif italic text-white/70 leading-relaxed max-w-[220px]">
             "Extra is our love language."

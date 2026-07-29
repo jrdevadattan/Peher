@@ -1,44 +1,142 @@
-﻿const express = require("express");
+const crypto = require("crypto");
+const express = require("express");
+const { rateLimit } = require("express-rate-limit");
+const Razorpay = require("razorpay");
 const requireAuth = require("../middleware/auth");
-const Order = require("../models/Order");
+const supabase = require("../lib/supabase");
+const { priceCart } = require("../lib/commerce");
+const { publicError, safeErrorMessage } = require("../lib/http-error");
 
 const router = express.Router();
+const orderLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many order attempts. Please wait a minute and try again." },
+});
 
-// Create an order — must be logged in. Only reached after Razorpay signature is verified client-side.
-router.post("/", requireAuth, async (req, res) => {
+function getRazorpay() {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay is not configured on the server.");
+  }
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+}
+
+function validSignature(orderId, paymentId, signature) {
+  if (!orderId || !paymentId || !signature || !process.env.RAZORPAY_KEY_SECRET) return false;
+  const expected = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(String(signature));
+  return (
+    expectedBuffer.length === signatureBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
+  );
+}
+
+function validAddress(address) {
+  const within = (value, minimum, maximum) => {
+    const length = String(value || "").trim().length;
+    return length >= minimum && length <= maximum;
+  };
+  return (
+    address &&
+    within(address.fullName, 2, 120) &&
+    /^[0-9]{10}$/.test(String(address.phone || "").trim()) &&
+    within(address.addressLine1, 4, 250) &&
+    within(address.addressLine2, 0, 250) &&
+    within(address.city, 2, 100) &&
+    within(address.state, 2, 100) &&
+    /^[0-9]{6}$/.test(String(address.pincode || "").trim())
+  );
+}
+
+router.post("/", orderLimiter, requireAuth, async (req, res) => {
   try {
-    const { items, address, subtotal, total, razorpayOrderId, razorpayPaymentId } = req.body;
-    if (!items || !items.length || !address || subtotal == null || total == null) {
-      return res.status(400).json({ error: "Missing required order fields" });
+    const { items, address, couponCode, razorpayOrderId, razorpayPaymentId, razorpaySignature } =
+      req.body;
+    if (!Array.isArray(items) || !items.length || !validAddress(address)) {
+      return res.status(400).json({ error: "Missing or invalid order fields." });
     }
-    if (!razorpayOrderId || !razorpayPaymentId) {
-      return res.status(400).json({ error: "Missing payment reference" });
+    if (!validSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
+      return res.status(400).json({ error: "Invalid payment signature." });
     }
-    const order = await Order.create({
-      user: req.userId,
-      items,
-      address,
-      subtotal,
-      total,
-      razorpayOrderId,
-      razorpayPaymentId,
-      paymentStatus: "paid",
-      status: "confirmed",
+
+    const pricing = await priceCart(items, req.user.id, couponCode);
+    const payment = await getRazorpay().payments.fetch(razorpayPaymentId);
+    if (
+      payment.order_id !== razorpayOrderId ||
+      !["authorized", "captured"].includes(payment.status) ||
+      Number(payment.amount) !== Math.round(pricing.total * 100)
+    ) {
+      return res.status(400).json({ error: "Payment amount or status does not match this order." });
+    }
+
+    const shippingAddress = [
+      address.addressLine1,
+      address.addressLine2,
+      address.city,
+      address.state,
+      address.pincode,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .join(", ");
+
+    const { data, error: finalizeError } = await supabase.rpc("finalize_paid_order", {
+      p_customer_id: req.user.id,
+      p_customer_name: String(address.fullName).trim(),
+      p_customer_email: req.user.email,
+      p_customer_phone: String(address.phone).trim(),
+      p_shipping_address: shippingAddress,
+      p_payment_order_id: razorpayOrderId,
+      p_payment_id: razorpayPaymentId,
+      p_items: pricing.items,
+      p_subtotal: pricing.subtotal,
+      p_shipping_cost: pricing.shippingCost,
+      p_tax_amount: pricing.taxAmount,
+      p_coupon_code: pricing.coupon?.code || null,
     });
-    res.json(order);
-  } catch (err) {
-    res.status(500).json({ error: "Could not create order" });
+    if (finalizeError) {
+      if (finalizeError.code === "P0001" || finalizeError.code === "22023") {
+        throw publicError(finalizeError.message);
+      }
+      throw finalizeError;
+    }
+    const result = data?.[0];
+    if (!result) throw publicError("The paid order could not be finalized.");
+
+    await supabase
+      .from("profiles")
+      .update({ phone: address.phone, last_login_at: new Date().toISOString() })
+      .eq("id", req.user.id);
+
+    res.status(result.already_exists ? 200 : 201).json({
+      id: result.order_id,
+      orderNumber: result.order_number,
+      discountAmount: Number(result.discount_amount),
+      total: Number(result.order_total),
+      alreadyExists: result.already_exists,
+    });
+  } catch (error) {
+    res.status(400).json({ error: safeErrorMessage(error, "Could not create order.") });
   }
 });
 
-// Logged-in user's own orders
 router.get("/my", requireAuth, async (req, res) => {
-  try {
-    const orders = await Order.find({ user: req.userId }).sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: "Could not fetch orders" });
-  }
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, items:order_items(*)")
+    .eq("customer_id", req.user.id)
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: "Could not fetch orders" });
+  res.json(data || []);
 });
 
 module.exports = router;

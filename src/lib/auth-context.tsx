@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 type User = { id: string; name: string; email: string };
 
@@ -6,94 +8,98 @@ type AuthContextType = {
   user: User | null;
   token: string | null;
   loading: boolean;
+  googleAuthEnabled: boolean;
   signup: (name: string, email: string, password: string, confirmPassword: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const TOKEN_KEY = "peher-token";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+function mapUser(user: SupabaseUser): User {
+  return {
+    id: user.id,
+    name:
+      user.user_metadata.full_name ||
+      user.user_metadata.name ||
+      user.email?.split("@")[0] ||
+      "Customer",
+    email: user.email ?? "",
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const googleAuthEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+
+  const applySession = (session: Session | null) => {
+    setToken(session?.access_token ?? null);
+    setUser(session?.user ? mapUser(session.user) : null);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const saved = localStorage.getItem(TOKEN_KEY);
-    if (saved) {
-      setToken(saved);
-      fetch(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${saved}` },
-      })
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
-        .then((data) => setUser(data.user))
-        .catch(() => {
-          localStorage.removeItem(TOKEN_KEY);
-          setToken(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => applySession(session));
+    return () => subscription.unsubscribe();
   }, []);
 
-  const applyAuth = (data: { token: string; user: User }) => {
-    localStorage.setItem(TOKEN_KEY, data.token);
-    setToken(data.token);
-    setUser(data.user);
-  };
-
-  const handleAuthResponse = async (res: Response) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Something went wrong");
-    applyAuth(data);
-  };
-
   const signup = async (name: string, email: string, password: string, confirmPassword: string) => {
-    const res = await fetch(`${API_URL}/auth/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, confirmPassword }),
+    if (password !== confirmPassword) throw new Error("Passwords do not match.");
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
     });
-    await handleAuthResponse(res);
+    if (error) throw error;
+    if (!data.session) {
+      throw new Error("Check your inbox to confirm your email, then log in.");
+    }
   };
 
   const login = async (email: string, password: string) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    await handleAuthResponse(res);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   };
 
   const loginWithGoogle = async (credential: string) => {
-    const res = await fetch(`${API_URL}/auth/google`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential }),
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: credential,
     });
-    await handleAuthResponse(res);
+    if (error) throw error;
   };
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
-    setUser(null);
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signup, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        googleAuthEnabled,
+        signup,
+        login,
+        loginWithGoogle,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  return context;
 }

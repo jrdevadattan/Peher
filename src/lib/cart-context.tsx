@@ -1,5 +1,5 @@
 ﻿import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Product } from "@/components/ProductCard";
+import type { Product } from "@/lib/catalog-api";
 
 export type CartItem = {
   id: string;

@@ -2,13 +2,16 @@
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Truck, Clock, Wallet, PackageCheck } from "lucide-react";
+import { getStorefrontSettings } from "@/lib/catalog-api";
 
 export const Route = createFileRoute("/shipping")({
   component: Shipping,
+  loader: () => getStorefrontSettings(),
   head: () => ({ meta: [{ title: "Shipping — PEHER" }, { name: "description", content: "Shipping timelines, costs, and coverage for PEHER orders." }] }),
 });
 
 function Shipping() {
+  const settings = Route.useLoaderData();
   return (
     <div className="bg-white">
       <Navbar />
@@ -24,7 +27,7 @@ function Shipping() {
         {[
           { icon: PackageCheck, title: "Processing Time", body: "Orders are processed within 1–3 business days after confirmation." },
           { icon: Truck, title: "Delivery Time", body: "Standard delivery usually takes 7–8 business days, depending on your location." },
-          { icon: Wallet, title: "Payment & Charges", body: "We accept prepaid orders only — Cash on Delivery (COD) is not available. Free shipping on orders above ₹1,500; otherwise, charges are calculated at checkout." },
+          { icon: Wallet, title: "Payment & Charges", body: `We accept prepaid orders only — Cash on Delivery (COD) is not available. Standard shipping is ₹${settings.standardShippingRate.toLocaleString("en-IN")}; shipping is free on orders of ₹${settings.freeShippingThreshold.toLocaleString("en-IN")} or more.` },
           { icon: Clock, title: "Coverage & Delays", body: "We currently ship across India. Delivery timelines may vary during festivals, sales, or due to unforeseen courier delays." },
         ].map(({ icon: Icon, title, body }) => (
           <div key={title} className="flex gap-5">

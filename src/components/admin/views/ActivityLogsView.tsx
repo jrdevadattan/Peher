@@ -1,17 +1,42 @@
-import { useState } from "react";
-import { AdminStore, type ActivityLog } from "@/lib/admin-store";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getActivityLogs } from "@/lib/admin-api";
 import { Shield, Clock, Terminal } from "lucide-react";
+import { AdminTableRowsSkeleton } from "@/components/loading-skeletons";
 
 export function ActivityLogsView() {
-  const [logs] = useState<ActivityLog[]>(AdminStore.logs);
+  const { data: logs = [], isLoading, error } = useQuery({
+    queryKey: ["admin", "activity-logs"],
+    queryFn: getActivityLogs,
+  });
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState("All");
+  const roles = Array.from(new Set(logs.map((log) => log.userRole))).sort();
+  const filteredLogs = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return logs.filter(
+      (log) =>
+        (role === "All" || log.userRole === role) &&
+        (!query ||
+          [log.userName, log.action, log.details, log.ipAddress]
+            .join(" ")
+            .toLowerCase()
+            .includes(query)),
+    );
+  }, [logs, role, search]);
 
   return (
     <div className="space-y-6 fade-up">
+      {error && <p className="text-xs text-red-600">Audit records could not be loaded.</p>}
       <div>
         <h1 className="font-serif text-3xl md:text-4xl tracking-tight">System Activity Audit Trail</h1>
         <p className="text-xs text-muted-foreground mt-1">
           Immutable log of administrative logins, product edits, status changes, and settings updates.
         </p>
+      </div>
+      <div className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-[1fr_220px]">
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search user, action, detail, or IP..." className="rounded-lg border border-border bg-transparent p-2.5 text-xs" />
+        <select value={role} onChange={(event) => setRole(event.target.value)} className="rounded-lg border border-border bg-transparent p-2.5 text-xs"><option>All</option>{roles.map((value) => <option key={value}>{value}</option>)}</select>
       </div>
 
       <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
@@ -27,7 +52,15 @@ export function ActivityLogsView() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border font-mono text-[11px]">
-            {logs.map((l) => (
+            {isLoading ? (
+              <AdminTableRowsSkeleton columns={6} rows={7} />
+            ) : filteredLogs.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-8 text-center font-sans text-sm text-muted-foreground">
+                  No administrator activity has been recorded.
+                </td>
+              </tr>
+            ) : filteredLogs.map((l) => (
               <tr key={l.id} className="hover:bg-muted/30">
                 <td className="p-4 text-muted-foreground">{l.timestamp}</td>
                 <td className="p-4 font-sans font-semibold text-xs">{l.userName}</td>

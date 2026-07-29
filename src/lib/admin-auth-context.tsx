@@ -1,4 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { setAuthPersistence, supabase } from "@/lib/supabase";
+import { serverApi } from "@/lib/server-api";
 
 export type AdminRole =
   | "Owner"
@@ -15,6 +18,7 @@ export type AdminUser = {
   name: string;
   email: string;
   role: AdminRole;
+  permissions: string[];
   avatar?: string;
   lastLogin: string;
   twoFactorEnabled: boolean;
@@ -23,8 +27,24 @@ export type AdminUser = {
 export const ROLE_PERMISSIONS: Record<AdminRole, string[]> = {
   Owner: ["*"],
   Admin: ["*"],
-  Manager: ["products", "orders", "customers", "coupons", "inventory", "reviews", "analytics", "marketing", "shipping", "payments", "media", "seo"],
-  "Inventory Manager": ["products", "inventory", "media"],
+  Manager: [
+    "products",
+    "orders",
+    "customers",
+    "coupons",
+    "inventory",
+    "reviews",
+    "analytics",
+    "marketing",
+    "shipping",
+    "payments",
+    "taxes",
+    "media",
+    "seo",
+    "settings",
+    "categories",
+  ],
+  "Inventory Manager": ["products", "inventory", "media", "categories"],
   "Order Manager": ["orders", "customers", "shipping", "payments"],
   "Customer Support": ["orders", "customers", "reviews"],
   Marketing: ["coupons", "analytics", "marketing", "media", "seo"],
@@ -33,160 +53,105 @@ export const ROLE_PERMISSIONS: Record<AdminRole, string[]> = {
 
 type AdminAuthContextType = {
   adminUser: AdminUser | null;
-  token: string | null;
   loading: boolean;
-  login: (email: string, pass: string, remember: boolean) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, password: string, remember: boolean) => Promise<void>;
+  logout: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
   hasPermission: (permission: string) => boolean;
   lockoutRemainingSeconds: number;
   failedAttempts: number;
 };
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
-const ADMIN_TOKEN_KEY = "peher-admin-token";
-const ADMIN_USER_KEY = "peher-admin-user";
-const LOCKOUT_KEY = "peher-admin-lockout";
-const FAILED_ATTEMPTS_KEY = "peher-admin-failed-attempts";
 
-const DEFAULT_ADMIN: AdminUser = {
-  id: "adm-001",
-  name: "Vasudha Tiwari",
-  email: "admin@peher.studio",
-  role: "Owner",
-  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-  lastLogin: new Date().toISOString(),
-  twoFactorEnabled: true,
-};
+async function resolveAdmin(session: Session | null): Promise<AdminUser | null> {
+  if (!session) return null;
+  let data;
+  try {
+    data = await serverApi<{
+      membership: {
+        display_name: string;
+        email: string;
+        role: AdminRole;
+        permissions: string[] | null;
+        two_factor_enabled: boolean;
+      };
+      profile: { avatar_path: string | null; last_login_at: string | null } | null;
+    }>("/admin/session", { auth: true });
+  } catch {
+    return null;
+  }
+  const { membership, profile } = data;
+
+  return {
+    id: session.user.id,
+    name: membership.display_name,
+    email: membership.email,
+    role: membership.role as AdminRole,
+    permissions: membership.permissions ?? [],
+    avatar: profile?.avatar_path ?? undefined,
+    lastLogin: profile?.last_login_at ?? session.user.last_sign_in_at ?? new Date().toISOString(),
+    twoFactorEnabled: membership.two_factor_enabled,
+  };
+}
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
-  const [lockoutRemainingSeconds, setLockoutRemainingSeconds] = useState(0);
 
   useEffect(() => {
-    try {
-      const savedToken = localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY);
-      const savedUser = localStorage.getItem(ADMIN_USER_KEY) || sessionStorage.getItem(ADMIN_USER_KEY);
-      const savedLockout = localStorage.getItem(LOCKOUT_KEY);
-      const savedFailed = localStorage.getItem(FAILED_ATTEMPTS_KEY);
-
-      if (savedLockout) {
-        const until = parseInt(savedLockout, 10);
-        if (until > Date.now()) {
-          setLockoutUntil(until);
-        } else {
-          localStorage.removeItem(LOCKOUT_KEY);
-        }
+    supabase.auth.getSession().then(async ({ data }) => {
+      try {
+        setAdminUser(await resolveAdmin(data.session));
+      } finally {
+        setLoading(false);
       }
+    });
 
-      if (savedFailed) {
-        setFailedAttempts(parseInt(savedFailed, 10));
-      }
-
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setAdminUser(JSON.parse(savedUser));
-      }
-    } catch {
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      localStorage.removeItem(ADMIN_USER_KEY);
-    } finally {
-      setLoading(false);
-    }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(async () => {
+        setAdminUser(await resolveAdmin(session));
+        setLoading(false);
+      }, 0);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!lockoutUntil) {
-      setLockoutRemainingSeconds(0);
-      return;
+  const login = async (email: string, password: string, remember: boolean) => {
+    setAuthPersistence(remember);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw new Error("Email or password is incorrect, or sign-in is temporarily unavailable.");
     }
-
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
-      setLockoutRemainingSeconds(remaining);
-      if (remaining === 0) {
-        setLockoutUntil(null);
-        setFailedAttempts(0);
-        localStorage.removeItem(LOCKOUT_KEY);
-        localStorage.removeItem(FAILED_ATTEMPTS_KEY);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [lockoutUntil]);
-
-  useEffect(() => {
-    if (!adminUser) return;
-
-    let timer: NodeJS.Timeout;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        logout();
-      }, 30 * 60 * 1000);
-    };
-
-    window.addEventListener("mousemove", resetTimer);
-    window.addEventListener("keydown", resetTimer);
-    resetTimer();
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("mousemove", resetTimer);
-      window.removeEventListener("keydown", resetTimer);
-    };
-  }, [adminUser]);
-
-  const login = async (email: string, pass: string, remember: boolean): Promise<boolean> => {
-    if (lockoutUntil && Date.now() < lockoutUntil) {
-      throw new Error(`Account locked due to multiple failed attempts. Try again in ${lockoutRemainingSeconds} seconds.`);
+    const resolved = await resolveAdmin(data.session);
+    if (!resolved) {
+      await supabase.auth.signOut();
+      throw new Error("This account does not have access to the admin console.");
     }
-
-    if (email.toLowerCase() === "admin@peher.studio" && pass === "admin123") {
-      const mockToken = `peher_jwt_admin_${Date.now()}`;
-      const loggedUser = { ...DEFAULT_ADMIN, lastLogin: new Date().toISOString() };
-
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem(ADMIN_TOKEN_KEY, mockToken);
-      storage.setItem(ADMIN_USER_KEY, JSON.stringify(loggedUser));
-
-      setToken(mockToken);
-      setAdminUser(loggedUser);
-      setFailedAttempts(0);
-      localStorage.removeItem(FAILED_ATTEMPTS_KEY);
-      localStorage.removeItem(LOCKOUT_KEY);
-      return true;
-    } else {
-      const nextFailed = failedAttempts + 1;
-      setFailedAttempts(nextFailed);
-      localStorage.setItem(FAILED_ATTEMPTS_KEY, nextFailed.toString());
-
-      if (nextFailed >= 5) {
-        const until = Date.now() + 15 * 60 * 1000;
-        setLockoutUntil(until);
-        localStorage.setItem(LOCKOUT_KEY, until.toString());
-        throw new Error("Too many failed attempts. Account temporarily locked for 15 minutes.");
-      }
-
-      throw new Error(`Invalid credentials. ${5 - nextFailed} attempt(s) remaining before lockout.`);
-    }
+    setAdminUser(resolved);
+    await serverApi("/admin/session/touch", { method: "POST", auth: true });
   };
 
-  const logout = () => {
-    localStorage.removeItem(ADMIN_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_USER_KEY);
-    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-    sessionStorage.removeItem(ADMIN_USER_KEY);
-    setToken(null);
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error("Password recovery could not be started. Please try again later.");
     setAdminUser(null);
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/admin`,
+    });
+    if (error) throw error;
   };
 
   const hasPermission = (permission: string) => {
     if (!adminUser) return false;
-    const permissions = ROLE_PERMISSIONS[adminUser.role] || [];
+    const permissions = adminUser.permissions.length
+      ? adminUser.permissions
+      : ROLE_PERMISSIONS[adminUser.role];
     return permissions.includes("*") || permissions.includes(permission);
   };
 
@@ -194,13 +159,13 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     <AdminAuthContext.Provider
       value={{
         adminUser,
-        token,
         loading,
         login,
         logout,
+        requestPasswordReset,
         hasPermission,
-        lockoutRemainingSeconds,
-        failedAttempts,
+        lockoutRemainingSeconds: 0,
+        failedAttempts: 0,
       }}
     >
       {children}
@@ -209,7 +174,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAdminAuth() {
-  const ctx = useContext(AdminAuthContext);
-  if (!ctx) throw new Error("useAdminAuth must be used within an AdminAuthProvider");
-  return ctx;
+  const context = useContext(AdminAuthContext);
+  if (!context) throw new Error("useAdminAuth must be used within an AdminAuthProvider");
+  return context;
 }

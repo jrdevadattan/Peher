@@ -3,15 +3,15 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
-import { useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
   head: () => ({ meta: [{ title: "Checkout - PEHER" }] }),
 });
 
-// Set to true to require login before checkout (re-enable later)
-const REQUIRE_LOGIN_FOR_CHECKOUT = false;
+const REQUIRE_LOGIN_FOR_CHECKOUT = true;
 
 type AddressForm = {
   fullName: string;
@@ -21,6 +21,20 @@ type AddressForm = {
   city: string;
   state: string;
   pincode: string;
+};
+
+type CheckoutPricing = {
+  subtotal: number;
+  shippingCost: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+  coupon: {
+    id: string;
+    code: string;
+    type: string;
+    value: number;
+  } | null;
 };
 
 const emptyForm: AddressForm = {
@@ -35,10 +49,36 @@ const emptyForm: AddressForm = {
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+type RazorpayResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayOptions = {
+  key?: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill: { name: string; contact: string };
+  theme: { color: string };
+  handler: (response: RazorpayResponse) => Promise<void>;
+  modal: { ondismiss: () => void };
+};
+
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (options: RazorpayOptions) => {
+      on: (event: string, callback: () => void) => void;
+      open: () => void;
+    };
   }
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function Checkout() {
@@ -48,9 +88,42 @@ function Checkout() {
   const [form, setForm] = useState<AddressForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<CheckoutPricing | null>(null);
+  const displayedSubtotal = pricing?.subtotal ?? subtotal;
+  const displayedTotal = pricing?.total ?? subtotal;
 
-  const shipping = 0;
-  const total = subtotal + shipping;
+  useEffect(() => {
+    setCouponCode(sessionStorage.getItem("peher-coupon-code") || "");
+  }, []);
+
+  useEffect(() => {
+    setCouponMessage(null);
+    if (!items.length) {
+      setPricing(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`${API_BASE}/catalog/pricing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((item) => ({ id: item.id, size: item.size, qty: item.qty })),
+      }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || "Could not calculate pricing.");
+        setPricing(body);
+      })
+      .catch((pricingError) => {
+        if (pricingError.name !== "AbortError") setPricing(null);
+      });
+    return () => controller.abort();
+  }, [items]);
 
   const update = (field: keyof AddressForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -64,13 +137,13 @@ function Checkout() {
     form.state.trim().length > 1 &&
     /^[0-9]{6}$/.test(form.pincode.trim());
 
-  const saveOrder = async (razorpayOrderId: string, razorpayPaymentId: string) => {
+  const saveOrder = async (
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string,
+  ) => {
     const orderItems = items.map((i) => ({
       id: i.id,
-      name: i.name,
-      price: i.price,
-      image: i.image,
-      material: i.material,
       size: i.size,
       qty: i.qty,
     }));
@@ -84,15 +157,54 @@ function Checkout() {
       body: JSON.stringify({
         items: orderItems,
         address: form,
-        subtotal,
-        total,
+        couponCode: pricing?.coupon?.code || couponCode,
         razorpayOrderId,
         razorpayPaymentId,
+        razorpaySignature,
       }),
     });
 
-    if (!res.ok) throw new Error("Payment succeeded but saving your order failed. Please contact support.");
-    return res.json();
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(
+        body?.error || "Payment succeeded but saving your order failed. Please contact support.",
+      );
+    }
+    return body;
+  };
+
+  const cartPayload = items.map((item) => ({
+    id: item.id,
+    size: item.size,
+    qty: item.qty,
+  }));
+
+  const handleApplyCoupon = async () => {
+    if (!token) return;
+    setCouponBusy(true);
+    setCouponMessage(null);
+    try {
+      const response = await fetch(`${API_BASE}/coupons/validate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: couponCode, items: cartPayload }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || "This coupon could not be applied.");
+      setPricing(body);
+      setCouponCode(body.coupon.code);
+      sessionStorage.setItem("peher-coupon-code", body.coupon.code);
+      setCouponMessage(`${body.coupon.code} applied.`);
+    } catch (couponError: unknown) {
+      setPricing(null);
+      sessionStorage.removeItem("peher-coupon-code");
+      setCouponMessage(errorMessage(couponError, "This coupon could not be applied."));
+    } finally {
+      setCouponBusy(false);
+    }
   };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -104,11 +216,20 @@ function Checkout() {
     try {
       const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: total }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          items: cartPayload,
+          couponCode: pricing?.coupon?.code || couponCode,
+        }),
       });
-      if (!orderRes.ok) throw new Error("Could not initiate payment. Please try again.");
-      const razorpayOrder = await orderRes.json();
+      const razorpayOrder = await orderRes.json().catch(() => null);
+      if (!orderRes.ok) {
+        throw new Error(razorpayOrder?.error || "Could not initiate payment. Please try again.");
+      }
+      setPricing(razorpayOrder.pricing);
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
@@ -122,28 +243,20 @@ function Checkout() {
           contact: form.phone,
         },
         theme: { color: "#111111" },
-        handler: async (response: any) => {
+        handler: async (response: RazorpayResponse) => {
           try {
-            const verifyRes = await fetch(`${API_BASE}/payment/verify`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-            const verifyData = await verifyRes.json();
-
-            if (verifyData.verified) {
-              await saveOrder(response.razorpay_order_id, response.razorpay_payment_id);
-              clearCart();
-              navigate({ to: "/" });
-            } else {
-              setError("Payment verification failed. Please contact support.");
-            }
-          } catch (err: any) {
-            setError(err.message || "Something went wrong saving your order. Please contact support.");
+            await saveOrder(
+              response.razorpay_order_id,
+              response.razorpay_payment_id,
+              response.razorpay_signature,
+            );
+            clearCart();
+            sessionStorage.removeItem("peher-coupon-code");
+            navigate({ to: "/dashboard" });
+          } catch (err: unknown) {
+            setError(
+              errorMessage(err, "Something went wrong saving your order. Please contact support."),
+            );
           } finally {
             setSubmitting(false);
           }
@@ -159,8 +272,8 @@ function Checkout() {
         setSubmitting(false);
       });
       rzp.open();
-    } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Something went wrong. Please try again."));
       setSubmitting(false);
     }
   };
@@ -176,7 +289,10 @@ function Checkout() {
         <Navbar />
         <div className="pt-40 pb-32 container-luxe text-center">
           <p className="font-serif text-2xl">Your bag is empty.</p>
-          <Link to="/shop" className="mt-6 inline-block text-[11px] tracking-[0.22em] uppercase font-semibold underline underline-offset-4">
+          <Link
+            to="/shop"
+            className="mt-6 inline-block text-[11px] tracking-[0.22em] uppercase font-semibold underline underline-offset-4"
+          >
             Continue Shopping
           </Link>
         </div>
@@ -189,7 +305,14 @@ function Checkout() {
     return (
       <div className="bg-white">
         <Navbar />
-        <div className="pt-40 pb-32" />
+        <main className="container-luxe grid gap-10 pb-32 pt-40 lg:grid-cols-12">
+          <div className="space-y-5 lg:col-span-7">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-12 w-72" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl lg:col-span-5" />
+        </main>
         <Footer />
       </div>
     );
@@ -203,7 +326,8 @@ function Checkout() {
           <p className="eyebrow">Checkout</p>
           <h1 className="font-serif text-4xl md:text-6xl mt-4">Sign in to place your order</h1>
           <p className="mt-4 text-sm text-muted-foreground max-w-md mx-auto">
-            Create an account or log in so we can save your order details and let you track them anytime from your dashboard.
+            Create an account or log in so we can save your order details and let you track them
+            anytime from your dashboard.
           </p>
           <div className="mt-8 flex items-center justify-center gap-4">
             <button onClick={() => goToAuth("/login")} className="btn-peher">
@@ -217,7 +341,10 @@ function Checkout() {
             </button>
           </div>
           <div className="mt-8">
-            <Link to="/cart" className="text-[11px] tracking-[0.2em] uppercase border-b border-black pb-1">
+            <Link
+              to="/cart"
+              className="text-[11px] tracking-[0.2em] uppercase border-b border-black pb-1"
+            >
               Back to Cart
             </Link>
           </div>
@@ -235,36 +362,69 @@ function Checkout() {
         <h1 className="font-serif text-5xl md:text-7xl mt-4">Shipping Details</h1>
       </section>
 
-      <form onSubmit={handlePlaceOrder} className="container-luxe pb-32 grid grid-cols-1 lg:grid-cols-12 gap-16">
+      <form
+        onSubmit={handlePlaceOrder}
+        className="container-luxe pb-32 grid grid-cols-1 lg:grid-cols-12 gap-16"
+      >
         <div className="lg:col-span-7">
-          <p className="eyebrow !text-foreground mb-6 pb-2 border-b-2 border-[#D8E7D2] inline-block">Delivery Address</p>
+          <p className="eyebrow !text-foreground mb-6 pb-2 border-b-2 border-[#D8E7D2] inline-block">
+            Delivery Address
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Field label="Full Name" value={form.fullName} onChange={update("fullName")} full />
-            <Field label="Phone Number" value={form.phone} onChange={update("phone")} placeholder="10-digit mobile number" full />
-            <Field label="Address Line 1" value={form.addressLine1} onChange={update("addressLine1")} full colSpan2 />
-            <Field label="Address Line 2 (optional)" value={form.addressLine2} onChange={update("addressLine2")} colSpan2 />
+            <Field
+              label="Phone Number"
+              value={form.phone}
+              onChange={update("phone")}
+              placeholder="10-digit mobile number"
+              full
+            />
+            <Field
+              label="Address Line 1"
+              value={form.addressLine1}
+              onChange={update("addressLine1")}
+              full
+              colSpan2
+            />
+            <Field
+              label="Address Line 2 (optional)"
+              value={form.addressLine2}
+              onChange={update("addressLine2")}
+              colSpan2
+            />
             <Field label="City" value={form.city} onChange={update("city")} />
             <Field label="State" value={form.state} onChange={update("state")} />
-            <Field label="Pincode" value={form.pincode} onChange={update("pincode")} placeholder="6-digit PIN code" />
+            <Field
+              label="Pincode"
+              value={form.pincode}
+              onChange={update("pincode")}
+              placeholder="6-digit PIN code"
+            />
           </div>
 
           <div className="mt-10">
             <p className="eyebrow !text-foreground mb-4">Payment</p>
             <div className="border border-black/15 rounded-md p-6 flex items-center gap-4 bg-white">
               <div className="w-12 h-12 rounded-full bg-[#D8E7D2]/40 grid place-items-center shrink-0">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
                   <rect x="2" y="5" width="20" height="14" rx="2" stroke="#111" strokeWidth="1.5" />
                   <path d="M2 9H22" stroke="#111" strokeWidth="1.5" />
                 </svg>
               </div>
               <div>
                 <p className="text-sm font-medium">Secure payment via Razorpay</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Cards, UPI, Netbanking & Wallets accepted</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Cards, UPI, Netbanking & Wallets accepted
+                </p>
               </div>
             </div>
-            {error && (
-              <p className="mt-3 text-sm text-red-600">{error}</p>
-            )}
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
           </div>
         </div>
 
@@ -283,18 +443,84 @@ function Checkout() {
                       {i.size ? `Size ${i.size} - ` : ""}Qty {i.qty}
                     </p>
                   </div>
-                  <p className="text-sm self-center">₹{(i.price * i.qty).toLocaleString("en-IN")}</p>
+                  <p className="text-sm self-center">
+                    ₹{(i.price * i.qty).toLocaleString("en-IN")}
+                  </p>
                 </div>
               ))}
             </div>
 
+            <div className="mt-6">
+              <label
+                htmlFor="checkout-coupon"
+                className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                Coupon code
+              </label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  id="checkout-coupon"
+                  value={couponCode}
+                  onChange={(event) => {
+                    setCouponCode(event.target.value.toUpperCase());
+                    setPricing(null);
+                    setCouponMessage(null);
+                  }}
+                  maxLength={32}
+                  autoComplete="off"
+                  placeholder="Enter code"
+                  className="min-w-0 flex-1 border border-black/15 bg-white px-4 py-3 text-sm uppercase outline-none focus:border-black"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponBusy || couponCode.trim().length < 3}
+                  className="border border-black bg-black px-5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {couponBusy ? "Checking" : "Apply"}
+                </button>
+              </div>
+              {couponMessage && (
+                <p
+                  className={`mt-2 text-xs ${
+                    pricing?.coupon ? "text-emerald-700" : "text-red-600"
+                  }`}
+                >
+                  {couponMessage}
+                </p>
+              )}
+            </div>
+
             <dl className="mt-6 pt-6 border-t border-black/10 space-y-3 text-sm">
-              <Row k="Subtotal" v={`₹${subtotal.toLocaleString("en-IN")}`} />
-              <Row k="Shipping" v="Complimentary" />
+              <Row k="Subtotal" v={`₹${displayedSubtotal.toLocaleString("en-IN")}`} />
+              <Row
+                k="Shipping"
+                v={
+                  pricing
+                    ? pricing.shippingCost
+                      ? `₹${pricing.shippingCost.toLocaleString("en-IN")}`
+                      : "Complimentary"
+                    : "Calculating..."
+                }
+              />
+              {pricing && pricing.taxAmount > 0 && (
+                <Row
+                  k="Tax included"
+                  v={`₹${pricing.taxAmount.toLocaleString("en-IN", {
+                    maximumFractionDigits: 2,
+                  })}`}
+                />
+              )}
+              {pricing && pricing.discountAmount > 0 && (
+                <Row
+                  k={`Discount${pricing.coupon ? ` (${pricing.coupon.code})` : ""}`}
+                  v={`-₹${pricing.discountAmount.toLocaleString("en-IN")}`}
+                />
+              )}
             </dl>
             <div className="border-t border-black/10 mt-6 pt-6 flex items-center justify-between">
               <span className="eyebrow !text-foreground">Total</span>
-              <span className="font-serif text-2xl">₹{total.toLocaleString("en-IN")}</span>
+              <span className="font-serif text-2xl">₹{displayedTotal.toLocaleString("en-IN")}</span>
             </div>
 
             <button
@@ -333,7 +559,9 @@ function Field({
 }) {
   return (
     <div className={colSpan2 ? "sm:col-span-2" : full ? "sm:col-span-2" : ""}>
-      <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</label>
+      <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-1">
+        {label}
+      </label>
       <input
         type="text"
         value={value}

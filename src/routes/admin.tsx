@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/admin-auth-context";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminAuthSkeleton } from "@/components/loading-skeletons";
 
 export const Route = createFileRoute("/admin")({
   component: AdminRouteWrapper,
@@ -25,11 +26,7 @@ function AdminContentSwitcher() {
   const { adminUser, loading } = useAdminAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0d0d] text-white flex items-center justify-center font-serif text-xl tracking-[0.2em]">
-        PEHER ATELIER...
-      </div>
-    );
+    return <AdminAuthSkeleton />;
   }
 
   if (!adminUser) {

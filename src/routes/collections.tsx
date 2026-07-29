@@ -1,47 +1,69 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import rings from "@/assets/rings.jpg";
-import necklaces from "@/assets/necklaces.jpg";
-import bracelets from "@/assets/bracelets.jpg";
-import earrings from "@/assets/earrings.jpg";
-import editorial1 from "@/assets/editorial1.jpg";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCategories } from "@/lib/use-catalog";
 
 export const Route = createFileRoute("/collections")({
   component: Collections,
-  head: () => ({ meta: [{ title: "Collections — PEHER" }, { name: "description", content: "Explore PEHER collections — Rings, Necklaces, Bracelets, Earrings." }] }),
+  head: () => ({
+    meta: [
+      { title: "Collections - PEHER" },
+      {
+        name: "description",
+        content: "Explore the live PEHER jewellery collections.",
+      },
+    ],
+  }),
 });
 
-const items = [
-  { name: "Rings", desc: "Sculpted circles, hand-carved in wax.", image: rings },
-  { name: "Necklaces", desc: "Chains and pendants shaped by hand.", image: necklaces },
-  { name: "Bracelets", desc: "Weight for the wrist, quietly gold.", image: bracelets },
-  { name: "Earrings", desc: "Small dictations of light and pearl.", image: earrings },
-  { name: "The Lookbook", desc: "A season of soft light.", image: editorial1, span: true },
-];
-
 function Collections() {
+  const { data: categories = [], isLoading, error } = useCategories();
+
   return (
     <div className="bg-white">
       <Navbar />
-      <div className="pt-36 pb-16 container-luxe text-center">
+      <div className="container-luxe pb-16 pt-36 text-center">
         <p className="eyebrow">Collections</p>
-        <h1 className="font-serif text-5xl md:text-7xl mt-4">A quiet edit.</h1>
+        <h1 className="mt-4 font-serif text-5xl md:text-7xl">A quiet edit.</h1>
       </div>
-      <div className="container-luxe pb-32 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
-        {items.map((c) => (
-          <Link key={c.name} to="/shop" className={`group block ${c.span ? "md:col-span-2" : ""}`}>
-            <div className={`relative overflow-hidden bg-[#f9f9f7] ${c.span ? "aspect-[16/10]" : "aspect-[4/5]"}`}>
-              <img src={c.image} alt={c.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-[1400ms] group-hover:scale-[1.05]" />
-              <div className="absolute inset-0 flex items-end p-8 md:p-12">
-                <div className="text-white drop-shadow">
-                  <h3 className="font-serif text-3xl md:text-5xl">{c.name}</h3>
-                  <p className="mt-2 text-sm max-w-xs">{c.desc}</p>
+      <div className="container-luxe grid grid-cols-1 gap-6 pb-32 md:grid-cols-2 md:gap-10">
+        {isLoading &&
+          Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="space-y-4">
+              <Skeleton className="aspect-[4/5] rounded-none" />
+              <Skeleton className="h-8 w-1/2" />
+            </div>
+          ))}
+        {error && (
+          <p className="md:col-span-2 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            Collections could not be loaded.
+          </p>
+        )}
+        {!isLoading &&
+          categories.map((category) => (
+            <Link
+              key={category.id}
+              to="/shop"
+              search={{ category: category.slug }}
+              className="group block"
+            >
+              <div className="relative aspect-[4/5] overflow-hidden bg-[#f9f9f7]">
+                <img
+                  src={category.image}
+                  alt={category.name}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-[1400ms] group-hover:scale-[1.05]"
+                />
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/45 via-transparent to-transparent p-8 md:p-12">
+                  <div className="text-white drop-shadow">
+                    <h2 className="font-serif text-3xl md:text-5xl">{category.name}</h2>
+                    <p className="mt-2 max-w-xs text-sm">{category.description}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          ))}
       </div>
       <Footer />
     </div>
