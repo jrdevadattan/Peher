@@ -1,5 +1,6 @@
 const supabase = require("./supabase");
 const { publicError } = require("./http-error");
+const { calculateCheckoutTotal, calculateShippingCost } = require("./pricing-rules");
 
 const MAX_CART_LINES = 50;
 const MAX_QUANTITY_PER_LINE = 10;
@@ -32,7 +33,7 @@ async function priceCart(items, customerId, couponCode) {
   const { data: products, error } = await supabase
     .from("products")
     .select(
-      "id, slug, sku, name, price, stock, tax_rate, status, images:product_images(object_path, kind), variants:product_variants(id, size, price, stock, sku)",
+      "id, slug, sku, name, price, stock, status, images:product_images(object_path, kind), variants:product_variants(id, size, price, stock, sku)",
     )
     .in("slug", slugs)
     .eq("status", "Published");
@@ -64,7 +65,6 @@ async function priceCart(items, customerId, couponCode) {
       quantity: item.quantity,
       size: item.size,
       image_path: primaryImage?.object_path || null,
-      tax_rate: Number(product.tax_rate || 0),
     };
   });
 
@@ -75,9 +75,7 @@ async function priceCart(items, customerId, couponCode) {
   ] = await Promise.all([
     supabase
       .from("store_settings")
-      .select(
-        "gst_percentage, prices_include_tax, shipping_enabled, standard_shipping_rate, free_shipping_threshold",
-      )
+      .select("shipping_enabled, standard_shipping_rate, free_shipping_threshold")
       .eq("id", "default")
       .single(),
     supabase
@@ -95,18 +93,11 @@ async function priceCart(items, customerId, couponCode) {
   const freeThreshold = Number(
     method?.free_threshold ?? settings.free_shipping_threshold ?? Number.MAX_SAFE_INTEGER,
   );
-  const shippingCost = settings.shipping_enabled && subtotal < freeThreshold ? shippingRate : 0;
-  const taxAmount = pricedItems.reduce((sum, item) => {
-    const lineTotal = item.unit_price * item.quantity;
-    const rate = Number(item.tax_rate || settings.gst_percentage || 0);
-    if (!rate) return sum;
-    return (
-      sum +
-      (settings.prices_include_tax
-        ? lineTotal - lineTotal / (1 + rate / 100)
-        : lineTotal * (rate / 100))
-    );
-  }, 0);
+  const shippingCost = calculateShippingCost(subtotal, {
+    enabled: settings.shipping_enabled,
+    rate: shippingRate,
+    freeThreshold,
+  });
   const normalizedCode = normalizeCouponCode(couponCode);
   let coupon = null;
   let discountAmount = 0;
@@ -136,14 +127,18 @@ async function priceCart(items, customerId, couponCode) {
     };
   }
 
-  const taxToAdd = settings.prices_include_tax ? 0 : taxAmount;
-  const total = Math.max(subtotal + shippingCost + taxToAdd - discountAmount - shippingDiscount, 0);
+  const total = calculateCheckoutTotal({
+    subtotal,
+    shippingCost,
+    discountAmount,
+    shippingDiscount,
+  });
 
   return {
     items: pricedItems,
     subtotal,
     shippingCost,
-    taxAmount,
+    taxAmount: 0,
     discountAmount: discountAmount + shippingDiscount,
     total,
     coupon,

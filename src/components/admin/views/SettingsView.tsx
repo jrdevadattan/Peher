@@ -57,7 +57,7 @@ export function SettingsView() {
       <div>
         <h1 className="font-serif text-3xl tracking-tight md:text-4xl">System & Store Settings</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          Persisted brand, tax, shipping, and storefront controls.
+          Persisted brand, shipping, and storefront controls.
         </p>
       </div>
 
@@ -95,14 +95,9 @@ export function SettingsView() {
 
         <section className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-xs">
           <h3 className="flex items-center gap-2 font-serif text-2xl">
-            <Truck className="h-5 w-5" /> Tax & Shipping Rules
+            <Truck className="h-5 w-5" /> Shipping Rules
           </h3>
           <div className="grid grid-cols-1 gap-4 text-xs md:grid-cols-2">
-            <NumberField
-              label="GST Rate (%)"
-              value={form.gstPercentage}
-              onChange={(value) => update("gstPercentage", value)}
-            />
             <NumberField
               label="Free Shipping Order Minimum"
               value={form.freeShippingThreshold}

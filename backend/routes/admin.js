@@ -7,6 +7,7 @@ const supabase = require("../lib/supabase");
 const { publicError, safeErrorMessage } = require("../lib/http-error");
 const { inspectImage } = require("../lib/image-upload");
 const { submitIndexNow } = require("../lib/indexnow");
+const { keyMatchesMode } = require("../lib/razorpay-security");
 
 const router = express.Router();
 const upload = multer({
@@ -96,6 +97,24 @@ function validateUpload(file) {
   return detected;
 }
 
+function sanitizeProductTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  const seen = new Set();
+  const cleaned = [];
+  for (const tag of tags) {
+    const label = String(tag || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 40);
+    const key = label.toLowerCase();
+    if (!label || seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(label);
+    if (cleaned.length >= 12) break;
+  }
+  return cleaned;
+}
+
 router.get("/session", async (req, res) => {
   const [{ data: membership, error }, { data: profile }] = await Promise.all([
     supabase
@@ -167,15 +186,19 @@ function productPayload(input, categoryId) {
     stock: Math.max(0, Math.trunc(Number(input.stock) || 0)),
     weight: String(input.weight || "").trim() || null,
     dimensions: String(input.dimensions || "").trim() || null,
-    tags: Array.isArray(input.tags) ? input.tags.map(String).slice(0, 50) : [],
+    tags: sanitizeProductTags(input.tags),
     seo_title: String(input.seoTitle || "").trim() || null,
     seo_description: String(input.seoDescription || "").trim() || null,
     status: input.status,
     is_featured: Boolean(input.isFeatured),
     is_trending: Boolean(input.isTrending),
     is_bestseller: Boolean(input.isBestseller),
-    badge: String(input.badge || "").trim() || null,
-    tax_rate: Math.min(100, Math.max(0, Number(input.tax) || 0)),
+    badge:
+      String(input.badge || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 32) || null,
+    tax_rate: 0,
     shipping_class: String(input.shippingClass || "").trim() || null,
     barcode: String(input.barcode || "").trim() || null,
     gtin: String(input.gtin || "").trim() || null,
@@ -895,10 +918,10 @@ router.patch("/settings", requirePermission("settings"), async (req, res) => {
       .trim()
       .toUpperCase()
       .slice(0, 3),
-    gst_percentage: Math.min(100, Math.max(0, Number(input.gstPercentage) || 0)),
+    gst_percentage: 0,
     free_shipping_threshold: Math.max(0, Number(input.freeShippingThreshold) || 0),
     standard_shipping_rate: Math.max(0, Number(input.standardShippingRate) || 0),
-    prices_include_tax: Boolean(input.pricesIncludeTax),
+    prices_include_tax: true,
     shipping_enabled: Boolean(input.shippingEnabled),
     maintenance_mode: Boolean(input.maintenanceMode),
     meta_title: String(input.metaTitle || "").trim(),
@@ -1269,14 +1292,28 @@ router.get("/payments", requirePermission("payments"), async (_req, res) => {
     .eq("id", "razorpay")
     .single();
   if (error) return res.status(500).json({ error: "Could not load payment settings." });
+  const credentialsConfigured = Boolean(
+    process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET,
+  );
   res.json({
     ...data,
-    credentials_configured: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+    credentials_configured: credentialsConfigured,
+    mode_matches_credentials:
+      credentialsConfigured && keyMatchesMode(process.env.RAZORPAY_KEY_ID, data.test_mode),
     key_hint: process.env.RAZORPAY_KEY_ID ? `...${process.env.RAZORPAY_KEY_ID.slice(-4)}` : null,
   });
 });
 
 router.patch("/payments", requirePermission("payments"), async (req, res) => {
+  const enabledMethods = [
+    req.body.allowCards,
+    req.body.allowUpi,
+    req.body.allowNetbanking,
+    req.body.allowWallets,
+  ];
+  if (req.body.isEnabled && !enabledMethods.some(Boolean)) {
+    return res.status(400).json({ error: "Enable at least one payment method." });
+  }
   const payload = {
     is_enabled: Boolean(req.body.isEnabled),
     test_mode: Boolean(req.body.testMode),

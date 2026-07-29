@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { X } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
+import { apiUrl } from "@/lib/server-api";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/cart")({
@@ -14,7 +15,7 @@ function Cart() {
   const { items, removeItem, updateQty, subtotal } = useCart();
   const navigate = useNavigate();
   const [couponCode, setCouponCode] = useState("");
-  const [pricing, setPricing] = useState<{ shippingCost: number; taxAmount: number; total: number } | null>(null);
+  const [pricing, setPricing] = useState<{ shippingCost: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!items.length) {
@@ -22,7 +23,7 @@ function Cart() {
       return;
     }
     const controller = new AbortController();
-    fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/catalog/pricing`, {
+    fetch(apiUrl("/catalog/pricing"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -117,8 +118,7 @@ function Cart() {
               <h2 className="font-serif text-3xl">Order Summary</h2>
               <dl className="mt-8 space-y-4 text-sm">
                 <Row k="Subtotal" v={`₹${subtotal.toLocaleString("en-IN")}`} />
-                <Row k="Shipping" v={pricing ? (pricing.shippingCost ? `₹${pricing.shippingCost.toLocaleString("en-IN")}` : "Complimentary") : "Calculating..."} />
-                <Row k="Tax included" v={pricing ? `₹${pricing.taxAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "Calculating..."} />
+                <Row k="Delivery (free from ₹1,500)" v={pricing ? (pricing.shippingCost ? `₹${pricing.shippingCost.toLocaleString("en-IN")}` : "Complimentary") : "Calculating..."} />
               </dl>
               <div className="border-t border-black/10 mt-6 pt-6 flex items-center justify-between">
                 <span className="eyebrow !text-foreground">Total</span>

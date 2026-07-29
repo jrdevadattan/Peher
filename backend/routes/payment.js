@@ -1,10 +1,14 @@
-const crypto = require("crypto");
 const express = require("express");
 const { rateLimit } = require("express-rate-limit");
 const Razorpay = require("razorpay");
 const requireAuth = require("../middleware/auth");
 const { priceCart } = require("../lib/commerce");
 const { safeErrorMessage } = require("../lib/http-error");
+const {
+  checkoutDisplayConfig,
+  keyMatchesMode,
+  verifyPaymentSignature,
+} = require("../lib/razorpay-security");
 
 const router = express.Router();
 const paymentLimiter = rateLimit({
@@ -29,14 +33,21 @@ router.post("/create-order", paymentLimiter, requireAuth, async (req, res) => {
   try {
     const { data: paymentSettings, error: settingsError } = await require("../lib/supabase")
       .from("payment_settings")
-      .select("is_enabled")
+      .select("is_enabled, test_mode, allow_cards, allow_upi, allow_netbanking, allow_wallets")
       .eq("id", "razorpay")
       .single();
+    const hasPaymentMethod =
+      paymentSettings?.allow_cards ||
+      paymentSettings?.allow_upi ||
+      paymentSettings?.allow_netbanking ||
+      paymentSettings?.allow_wallets;
     if (
       settingsError ||
       !paymentSettings?.is_enabled ||
+      !hasPaymentMethod ||
       !process.env.RAZORPAY_KEY_ID ||
-      !process.env.RAZORPAY_KEY_SECRET
+      !process.env.RAZORPAY_KEY_SECRET ||
+      !keyMatchesMode(process.env.RAZORPAY_KEY_ID, paymentSettings.test_mode)
     ) {
       return res.status(503).json({ error: "Online payments are temporarily unavailable." });
     }
@@ -59,6 +70,11 @@ router.post("/create-order", paymentLimiter, requireAuth, async (req, res) => {
       id: order.id,
       amount: order.amount,
       currency: order.currency,
+      checkout: {
+        keyId: process.env.RAZORPAY_KEY_ID,
+        config: checkoutDisplayConfig(paymentSettings),
+        testMode: paymentSettings.test_mode,
+      },
       pricing: {
         subtotal: pricing.subtotal,
         shippingCost: pricing.shippingCost,
@@ -79,16 +95,12 @@ router.post("/verify", paymentLimiter, requireAuth, async (req, res) => {
       return res.status(503).json({ error: "Online payments are temporarily unavailable." });
     }
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
-    const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
-      .digest("hex");
-    const expectedBuffer = Buffer.from(expected);
-    const actualBuffer = Buffer.from(String(razorpay_signature || ""));
-    const verified =
-      expectedBuffer.length === actualBuffer.length &&
-      crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+    const verified = verifyPaymentSignature(
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      process.env.RAZORPAY_KEY_SECRET,
+    );
     if (!verified) return res.status(400).json({ verified: false, error: "Invalid signature" });
     res.json({ verified: true });
   } catch (error) {

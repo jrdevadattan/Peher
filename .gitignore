@@ -3,6 +3,10 @@
 dist/
 .vite/
 .output/
+.vercel/
 .wrangler/
 backend/.env
 .env.local
+
+.vercel
+.env*

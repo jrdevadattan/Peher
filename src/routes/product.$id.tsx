@@ -30,6 +30,15 @@ import {
   serializeJsonLd,
 } from "@/lib/seo";
 import { useAuth } from "@/lib/auth-context";
+import { getProductBadges, type ProductBadge } from "@/lib/product-badges";
+
+const badgeToneClass: Record<ProductBadge["tone"], string> = {
+  dark: "border-black bg-black text-white",
+  fresh: "border-[#D8E7D2] bg-[#D8E7D2] text-black",
+  sale: "border-black/15 bg-white text-black",
+  sold: "border-black bg-black text-white",
+  warning: "border-amber-200 bg-[#fff2cc] text-black",
+};
 
 export const Route = createFileRoute("/product/$id")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -296,6 +305,7 @@ function ProductPage() {
   const averageRating = reviews.length
     ? reviews.reduce((total, review) => total + review.rating, 0) / reviews.length
     : 0;
+  const badges = getProductBadges(product);
 
   return (
     <div className="bg-white">
@@ -342,6 +352,18 @@ function ProductPage() {
         {/* Details */}
         <div className="lg:col-span-5">
           <p className="eyebrow">{product.material}</p>
+          {badges.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {badges.map((badge) => (
+                <span
+                  key={badge.label}
+                  className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${badgeToneClass[badge.tone]}`}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          )}
           <h1 className="font-serif text-4xl md:text-5xl mt-4 leading-[1.05]">{product.name}</h1>
           {reviews.length > 0 && (
             <div className="mt-4 flex items-center gap-3">

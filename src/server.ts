@@ -1,5 +1,7 @@
 import "./lib/error-capture";
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -8,6 +10,14 @@ type ServerEntry = {
 };
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
+let apiFetchPromise: Promise<(request: Request) => Promise<Response> | Response> | undefined;
+const requestOriginStorage = new AsyncLocalStorage<string>();
+
+type PeherGlobal = typeof globalThis & {
+  __PEHER_GET_REQUEST_ORIGIN?: () => string;
+};
+
+(globalThis as PeherGlobal).__PEHER_GET_REQUEST_ORIGIN = () => requestOriginStorage.getStore() ?? "";
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
@@ -16,6 +26,15 @@ async function getServerEntry(): Promise<ServerEntry> {
     );
   }
   return serverEntryPromise;
+}
+
+async function getApiFetch() {
+  if (!apiFetchPromise) {
+    apiFetchPromise = Promise.all([import("../backend/app.js"), import("srvx/node")]).then(
+      ([appModule, srvxNode]) => srvxNode.toFetchHandler((appModule.default ?? appModule) as any),
+    );
+  }
+  return apiFetchPromise;
 }
 
 // h3 swallows in-handler throws into a normal 500 Response with body
@@ -55,20 +74,43 @@ function withBrowserSecurityHeaders(response: Response) {
   });
 }
 
+function renderApiError(error: unknown) {
+  const message =
+    error instanceof Error && error.message.includes("SUPABASE_")
+      ? error.message
+      : "The API server could not start. Check the Vercel function logs.";
+  return new Response(JSON.stringify({ error: message }), {
+    status: 500,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return withBrowserSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
-    } catch (error) {
-      console.error(error);
-      return withBrowserSecurityHeaders(
-        new Response(renderErrorPage(), {
-          status: 500,
-          headers: { "content-type": "text/html; charset=utf-8" },
-        }),
-      );
-    }
+    const requestUrl = new URL(request.url);
+    const origin = requestUrl.origin;
+    const pathname = requestUrl.pathname;
+    return requestOriginStorage.run(origin, async () => {
+      try {
+        if (pathname === "/api" || pathname.startsWith("/api/")) {
+          const apiFetch = await getApiFetch();
+          return apiFetch(request);
+        }
+        const handler = await getServerEntry();
+        const response = await handler.fetch(request, env, ctx);
+        return withBrowserSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
+      } catch (error) {
+        console.error(error);
+        if (pathname === "/api" || pathname.startsWith("/api/")) {
+          return renderApiError(error);
+        }
+        return withBrowserSecurityHeaders(
+          new Response(renderErrorPage(), {
+            status: 500,
+            headers: { "content-type": "text/html; charset=utf-8" },
+          }),
+        );
+      }
+    });
   },
 };

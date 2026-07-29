@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/lib/cart-context";
 import { useAuth } from "@/lib/auth-context";
+import { apiUrl } from "@/lib/server-api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 
@@ -26,7 +27,6 @@ type AddressForm = {
 type CheckoutPricing = {
   subtotal: number;
   shippingCost: number;
-  taxAmount: number;
   discountAmount: number;
   total: number;
   coupon: {
@@ -47,8 +47,6 @@ const emptyForm: AddressForm = {
   pincode: "",
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
 type RazorpayResponse = {
   razorpay_order_id: string;
   razorpay_payment_id: string;
@@ -56,14 +54,21 @@ type RazorpayResponse = {
 };
 
 type RazorpayOptions = {
-  key?: string;
+  key: string;
   amount: number;
   currency: string;
   name: string;
   description: string;
   order_id: string;
-  prefill: { name: string; contact: string };
+  prefill: { name: string; email: string; contact: string };
   theme: { color: string };
+  retry: { enabled: boolean };
+  config: {
+    display: {
+      hide: { method: string }[];
+      preferences: { show_default_blocks: boolean };
+    };
+  };
   handler: (response: RazorpayResponse) => Promise<void>;
   modal: { ondismiss: () => void };
 };
@@ -106,7 +111,7 @@ function Checkout() {
       return;
     }
     const controller = new AbortController();
-    fetch(`${API_BASE}/catalog/pricing`, {
+    fetch(apiUrl("/catalog/pricing"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -148,7 +153,7 @@ function Checkout() {
       qty: i.qty,
     }));
 
-    const res = await fetch(`${API_BASE}/orders`, {
+    const res = await fetch(apiUrl("/orders"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -184,7 +189,7 @@ function Checkout() {
     setCouponBusy(true);
     setCouponMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/coupons/validate`, {
+      const response = await fetch(apiUrl("/coupons/validate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -214,7 +219,7 @@ function Checkout() {
     setSubmitting(true);
 
     try {
-      const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
+      const orderRes = await fetch(apiUrl("/payment/create-order"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -229,10 +234,13 @@ function Checkout() {
       if (!orderRes.ok) {
         throw new Error(razorpayOrder?.error || "Could not initiate payment. Please try again.");
       }
+      if (!window.Razorpay) {
+        throw new Error("Secure payment checkout could not load. Please refresh and try again.");
+      }
       setPricing(razorpayOrder.pricing);
 
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      const options: RazorpayOptions = {
+        key: razorpayOrder.checkout.keyId,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
         name: "PEHER",
@@ -240,9 +248,12 @@ function Checkout() {
         order_id: razorpayOrder.id,
         prefill: {
           name: form.fullName,
+          email: user?.email || "",
           contact: form.phone,
         },
         theme: { color: "#111111" },
+        retry: { enabled: true },
+        config: razorpayOrder.checkout.config,
         handler: async (response: RazorpayResponse) => {
           try {
             await saveOrder(
@@ -494,7 +505,7 @@ function Checkout() {
             <dl className="mt-6 pt-6 border-t border-black/10 space-y-3 text-sm">
               <Row k="Subtotal" v={`₹${displayedSubtotal.toLocaleString("en-IN")}`} />
               <Row
-                k="Shipping"
+                k="Delivery (free from ₹1,500)"
                 v={
                   pricing
                     ? pricing.shippingCost
@@ -503,14 +514,6 @@ function Checkout() {
                     : "Calculating..."
                 }
               />
-              {pricing && pricing.taxAmount > 0 && (
-                <Row
-                  k="Tax included"
-                  v={`₹${pricing.taxAmount.toLocaleString("en-IN", {
-                    maximumFractionDigits: 2,
-                  })}`}
-                />
-              )}
               {pricing && pricing.discountAmount > 0 && (
                 <Row
                   k={`Discount${pricing.coupon ? ` (${pricing.coupon.code})` : ""}`}

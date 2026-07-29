@@ -4,7 +4,16 @@ import { useCart } from "@/lib/cart-context";
 import { useWishlist } from "@/lib/wishlist-context";
 import { Minus, Plus, Heart } from "lucide-react";
 import type { Product } from "@/lib/catalog-api";
+import { getProductBadges, type ProductBadge } from "@/lib/product-badges";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const badgeToneClass: Record<ProductBadge["tone"], string> = {
+  dark: "bg-black text-white",
+  fresh: "bg-[#D8E7D2] text-black",
+  sale: "bg-white text-black border border-black/10",
+  sold: "bg-black text-white",
+  warning: "bg-[#fff2cc] text-black border border-amber-200",
+};
 
 export function ProductCard({ product }: { product: Product }) {
   const { items, addItem, updateQty, removeItem } = useCart();
@@ -13,10 +22,7 @@ export function ProductCard({ product }: { product: Product }) {
   const liked = isWishlisted(product.id);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const save =
-    product.originalPrice && product.originalPrice > product.price
-      ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-      : null;
+  const badges = getProductBadges(product);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -69,19 +75,18 @@ export function ProductCard({ product }: { product: Product }) {
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-700"
           />
         )}
-        {product.outOfStock ? (
-          <span className="absolute top-3 left-3 bg-black text-white text-[10px] tracking-[0.2em] uppercase font-semibold px-3 py-1.5 rounded-full">
-            Out of Stock
-          </span>
-        ) : save ? (
-          <span className="absolute top-3 left-3 bg-black text-white text-[10px] tracking-[0.16em] uppercase font-semibold px-3 py-1.5 rounded-full">
-            Save {save}%
-          </span>
-        ) : product.badge ? (
-          <span className="absolute top-3 left-3 bg-[#D8E7D2] text-black text-[10px] tracking-[0.16em] uppercase font-semibold px-3 py-1.5 rounded-full">
-            {product.badge}
-          </span>
-        ) : null}
+        {badges.length > 0 && (
+          <div className="absolute top-3 left-3 flex max-w-[calc(100%-4.5rem)] flex-wrap gap-1.5">
+            {badges.map((badge) => (
+              <span
+                key={badge.label}
+                className={`rounded-full px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] shadow-sm ${badgeToneClass[badge.tone]}`}
+              >
+                {badge.label}
+              </span>
+            ))}
+          </div>
+        )}
 
         <button
           onClick={handleWishlist}

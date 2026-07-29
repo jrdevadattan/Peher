@@ -29,6 +29,21 @@ import {
 } from "lucide-react";
 import { AdminTableRowsSkeleton } from "@/components/loading-skeletons";
 
+const MARKETING_TAG_SUGGESTIONS = [
+  "Selling Fast",
+  "Highly Selling",
+  "Low Stock",
+  "Only Few Left",
+  "Limited Drop",
+  "New Drop",
+  "Gift Pick",
+  "Back in Stock",
+];
+
+function normalizeMarketingTag(value: string) {
+  return value.trim().replace(/\s+/g, " ").slice(0, 40);
+}
+
 export function ProductsView() {
   const queryClient = useQueryClient();
   const { data: products = [], isLoading, error: loadError } = useQuery({
@@ -44,6 +59,7 @@ export function ProductsView() {
   const [previewProduct, setPreviewProduct] = useState<AdminProduct | null>(null);
   const [busy, setBusy] = useState(false);
   const [operationError, setOperationError] = useState("");
+  const [tagDraft, setTagDraft] = useState("");
 
   const refreshProducts = () =>
     Promise.all([
@@ -53,10 +69,17 @@ export function ProductsView() {
 
   // Filtered List
   const filtered = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.sku.toLowerCase().includes(query.toLowerCase()) ||
-      p.material.toLowerCase().includes(query.toLowerCase());
+    const searchText = [
+      p.name,
+      p.sku,
+      p.material,
+      p.badge,
+      ...(p.tags ?? []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = searchText.includes(query.toLowerCase());
     const matchesCat = selectedCategory === "All" || p.category === selectedCategory;
     const matchesStatus = selectedStatus === "All" || p.status === selectedStatus;
     return matchesSearch && matchesCat && matchesStatus;
@@ -185,6 +208,31 @@ export function ProductsView() {
     }
   };
 
+  const addMarketingTag = (value: string) => {
+    const nextTag = normalizeMarketingTag(value);
+    if (!nextTag) return;
+    setEditingProduct((current) => {
+      if (!current) return current;
+      const existingTags = current.tags ?? [];
+      if (existingTags.some((tag) => tag.toLowerCase() === nextTag.toLowerCase())) {
+        return current;
+      }
+      return { ...current, tags: [...existingTags, nextTag].slice(0, 12) };
+    });
+    setTagDraft("");
+  };
+
+  const removeMarketingTag = (value: string) => {
+    setEditingProduct((current) =>
+      current
+        ? {
+            ...current,
+            tags: current.tags.filter((tag) => tag.toLowerCase() !== value.toLowerCase()),
+          }
+        : current,
+    );
+  };
+
   const handleExportCSV = () => {
     const headers = "SKU,Name,Category,Price,CostPrice,Stock,Status\n";
     const rows = filtered.map((p) => `${p.sku},"${p.name}",${p.category},${p.price},${p.costPrice},${p.stock},${p.status}`).join("\n");
@@ -245,7 +293,7 @@ export function ProductsView() {
                 isFeatured: false,
                 isTrending: false,
                 isBestseller: false,
-                tax: 3,
+                tax: 0,
                 shippingClass: "Standard",
                 variants: [],
                 barcode: "",
@@ -368,6 +416,26 @@ export function ProductsView() {
                         <div>
                           <p className="font-semibold text-sm text-foreground">{p.name}</p>
                           <p className="text-[10px] text-muted-foreground">{p.material}</p>
+                          {(p.badge || p.tags.length > 0 || p.isTrending || p.isBestseller) && (
+                            <div className="mt-1 flex max-w-xs flex-wrap gap-1">
+                              {[
+                                p.isTrending ? "Selling Fast" : "",
+                                p.isBestseller ? "Highly Selling" : "",
+                                p.badge ?? "",
+                                ...p.tags,
+                              ]
+                                .filter(Boolean)
+                                .slice(0, 4)
+                                .map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -580,6 +648,121 @@ export function ProductsView() {
                     <option value="Archived">Archived</option>
                     <option value="Hidden">Hidden</option>
                   </select>
+                </div>
+
+                <div className="col-span-2 rounded-xl border border-border bg-muted/20 p-5">
+                  <div className="mb-4 flex items-start gap-3">
+                    <Sparkles className="mt-0.5 h-4 w-4 text-[#5b7a52]" />
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider">
+                        Storefront badges
+                      </p>
+                      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                        Low-stock labels are automatic from inventory. Add optional marketing labels
+                        here for cards and product pages.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Primary badge
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={32}
+                      value={editingProduct.badge ?? ""}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, badge: e.target.value })
+                      }
+                      placeholder="Limited Drop, New Arrival, Gift Pick..."
+                      className="w-full rounded-lg border border-border bg-transparent p-2.5 text-xs outline-none focus:border-black"
+                    />
+                  </label>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-xs">
+                      <span>Show Selling Fast</span>
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.isTrending}
+                        onChange={(e) =>
+                          setEditingProduct({ ...editingProduct, isTrending: e.target.checked })
+                        }
+                      />
+                    </label>
+                    <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-xs">
+                      <span>Show Highly Selling</span>
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.isBestseller}
+                        onChange={(e) =>
+                          setEditingProduct({ ...editingProduct, isBestseller: e.target.checked })
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4">
+                    <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Extra tags
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        maxLength={40}
+                        value={tagDraft}
+                        onChange={(e) => setTagDraft(e.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addMarketingTag(tagDraft);
+                          }
+                        }}
+                        placeholder="Add a catchy storefront tag"
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-transparent p-2.5 text-xs outline-none focus:border-black"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addMarketingTag(tagDraft)}
+                        className="rounded-lg bg-neutral-900 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-[#D8E7D2] hover:text-black"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {MARKETING_TAG_SUGGESTIONS.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => addMarketingTag(tag)}
+                          className="rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] hover:border-black"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                    {editingProduct.tags.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {editingProduct.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-2 rounded-full bg-black px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeMarketingTag(tag)}
+                              aria-label={`Remove ${tag}`}
+                              className="rounded-full p-0.5 hover:bg-white/15"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

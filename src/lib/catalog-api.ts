@@ -22,6 +22,10 @@ export type Product = {
   imagePath?: string;
   imageHoverPath?: string;
   badge?: string;
+  stock?: number;
+  tags?: string[];
+  isTrending?: boolean;
+  isBestseller?: boolean;
   outOfStock?: boolean;
   category?: string;
   description?: string;

@@ -216,6 +216,7 @@ export type PaymentSettings = {
   allowWallets: boolean;
   automaticCapture: boolean;
   credentialsConfigured: boolean;
+  modeMatchesCredentials: boolean;
   keyHint: string | null;
 };
 
@@ -737,6 +738,7 @@ export async function getPaymentSettings() {
     allowWallets: data.allow_wallets,
     automaticCapture: data.automatic_capture,
     credentialsConfigured: data.credentials_configured,
+    modeMatchesCredentials: data.mode_matches_credentials,
     keyHint: data.key_hint,
   } satisfies PaymentSettings;
 }

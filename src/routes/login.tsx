@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "@/lib/auth-context";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
 function LoginPage() {
-  const { login, loginWithGoogle, googleAuthEnabled } = useAuth();
+  const { login, googleAuthEnabled } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,20 +83,13 @@ function LoginPage() {
             </div>
 
             <div className="flex justify-center">
-              <GoogleLogin
-                use_fedcm_for_button
-                onSuccess={(res) => {
-                  if (res.credential) {
-                    loginWithGoogle(res.credential)
-                      .then(() => {
-                        const redirectTo = sessionStorage.getItem("post-login-redirect");
-                        sessionStorage.removeItem("post-login-redirect");
-                        navigate({ to: redirectTo || "/dashboard" });
-                      })
-                      .catch(() => setError("Google sign-in could not be completed."));
-                  }
+              <GoogleSignInButton
+                onAuthenticated={() => {
+                  const redirectTo = sessionStorage.getItem("post-login-redirect");
+                  sessionStorage.removeItem("post-login-redirect");
+                  navigate({ to: redirectTo || "/dashboard" });
                 }}
-                onError={() => setError("Google sign-in failed")}
+                onError={setError}
               />
             </div>
           </>

@@ -1,4 +1,3 @@
-const crypto = require("crypto");
 const express = require("express");
 const { rateLimit } = require("express-rate-limit");
 const Razorpay = require("razorpay");
@@ -6,6 +5,7 @@ const requireAuth = require("../middleware/auth");
 const supabase = require("../lib/supabase");
 const { priceCart } = require("../lib/commerce");
 const { publicError, safeErrorMessage } = require("../lib/http-error");
+const { keyMatchesMode, verifyPaymentSignature } = require("../lib/razorpay-security");
 
 const router = express.Router();
 const orderLimiter = rateLimit({
@@ -27,16 +27,11 @@ function getRazorpay() {
 }
 
 function validSignature(orderId, paymentId, signature) {
-  if (!orderId || !paymentId || !signature || !process.env.RAZORPAY_KEY_SECRET) return false;
-  const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(`${orderId}|${paymentId}`)
-    .digest("hex");
-  const expectedBuffer = Buffer.from(expected);
-  const signatureBuffer = Buffer.from(String(signature));
-  return (
-    expectedBuffer.length === signatureBuffer.length &&
-    crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
+  return verifyPaymentSignature(
+    orderId,
+    paymentId,
+    signature,
+    process.env.RAZORPAY_KEY_SECRET,
   );
 }
 
@@ -69,13 +64,47 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
     }
 
     const pricing = await priceCart(items, req.user.id, couponCode);
-    const payment = await getRazorpay().payments.fetch(razorpayPaymentId);
+    const { data: paymentSettings, error: paymentSettingsError } = await supabase
+      .from("payment_settings")
+      .select("is_enabled, test_mode, automatic_capture")
+      .eq("id", "razorpay")
+      .single();
+    if (
+      paymentSettingsError ||
+      !paymentSettings?.is_enabled ||
+      !keyMatchesMode(process.env.RAZORPAY_KEY_ID, paymentSettings.test_mode)
+    ) {
+      return res.status(503).json({ error: "Online payments are temporarily unavailable." });
+    }
+
+    const razorpay = getRazorpay();
+    const [payment, paymentOrder] = await Promise.all([
+      razorpay.payments.fetch(razorpayPaymentId),
+      razorpay.orders.fetch(razorpayOrderId),
+    ]);
+    const expectedAmount = Math.round(pricing.total * 100);
     if (
       payment.order_id !== razorpayOrderId ||
-      !["authorized", "captured"].includes(payment.status) ||
-      Number(payment.amount) !== Math.round(pricing.total * 100)
+      paymentOrder.id !== razorpayOrderId ||
+      paymentOrder.notes?.customer_id !== req.user.id ||
+      Number(payment.amount) !== expectedAmount ||
+      Number(paymentOrder.amount) !== expectedAmount
     ) {
       return res.status(400).json({ error: "Payment amount or status does not match this order." });
+    }
+
+    let confirmedPayment = payment;
+    if (payment.status === "authorized" && paymentSettings.automatic_capture) {
+      confirmedPayment = await razorpay.payments.capture(
+        razorpayPaymentId,
+        expectedAmount,
+        payment.currency || "INR",
+      );
+    }
+    if (confirmedPayment.status !== "captured") {
+      return res.status(409).json({
+        error: "Payment is awaiting capture. Please contact support before retrying.",
+      });
     }
 
     const shippingAddress = [
@@ -100,7 +129,7 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
       p_items: pricing.items,
       p_subtotal: pricing.subtotal,
       p_shipping_cost: pricing.shippingCost,
-      p_tax_amount: pricing.taxAmount,
+      p_tax_amount: 0,
       p_coupon_code: pricing.coupon?.code || null,
     });
     if (finalizeError) {
