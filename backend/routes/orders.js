@@ -52,16 +52,30 @@ function validAddress(address) {
     const length = String(value || "").trim().length;
     return length >= minimum && length <= maximum;
   };
+  const phoneDigits = String(address?.phone || "").replace(/\D/g, "").slice(-10);
+  const pincodeDigits = String(address?.pincode || "").replace(/\D/g, "");
   return (
     address &&
     within(address.fullName, 2, 120) &&
-    /^[0-9]{10}$/.test(String(address.phone || "").trim()) &&
-    within(address.addressLine1, 4, 250) &&
+    phoneDigits.length === 10 &&
+    within(address.addressLine1, 3, 250) &&
     within(address.addressLine2, 0, 250) &&
     within(address.city, 2, 100) &&
     within(address.state, 2, 100) &&
-    /^[0-9]{6}$/.test(String(address.pincode || "").trim())
+    pincodeDigits.length === 6
   );
+}
+
+function normalizeAddress(address) {
+  return {
+    fullName: String(address.fullName || "").trim(),
+    phone: String(address.phone || "").replace(/\D/g, "").slice(-10),
+    addressLine1: String(address.addressLine1 || "").trim(),
+    addressLine2: String(address.addressLine2 || "").trim(),
+    city: String(address.city || "").trim(),
+    state: String(address.state || "").trim(),
+    pincode: String(address.pincode || "").replace(/\D/g, ""),
+  };
 }
 
 router.post("/", orderLimiter, requireAuth, async (req, res) => {
@@ -74,6 +88,7 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
     if (!validSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
       return res.status(400).json({ error: "Invalid payment signature." });
     }
+    const normalizedAddress = normalizeAddress(address);
 
     const pricing = await priceCart(items, req.user.id, couponCode);
     const { keyId } = getRazorpayCredentials();
@@ -121,11 +136,11 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
     }
 
     const shippingAddress = [
-      address.addressLine1,
-      address.addressLine2,
-      address.city,
-      address.state,
-      address.pincode,
+      normalizedAddress.addressLine1,
+      normalizedAddress.addressLine2,
+      normalizedAddress.city,
+      normalizedAddress.state,
+      normalizedAddress.pincode,
     ]
       .filter(Boolean)
       .map((value) => String(value).trim())
@@ -133,9 +148,9 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
 
     const { data, error: finalizeError } = await supabase.rpc("finalize_paid_order", {
       p_customer_id: req.user.id,
-      p_customer_name: String(address.fullName).trim(),
+      p_customer_name: normalizedAddress.fullName,
       p_customer_email: req.user.email,
-      p_customer_phone: String(address.phone).trim(),
+      p_customer_phone: normalizedAddress.phone,
       p_shipping_address: shippingAddress,
       p_payment_order_id: razorpayOrderId,
       p_payment_id: razorpayPaymentId,
@@ -156,7 +171,7 @@ router.post("/", orderLimiter, requireAuth, async (req, res) => {
 
     await supabase
       .from("profiles")
-      .update({ phone: address.phone, last_login_at: new Date().toISOString() })
+      .update({ phone: normalizedAddress.phone, last_login_at: new Date().toISOString() })
       .eq("id", req.user.id);
 
     res.status(result.already_exists ? 200 : 201).json({

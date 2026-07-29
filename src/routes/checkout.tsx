@@ -99,6 +99,18 @@ function Checkout() {
   const [pricing, setPricing] = useState<CheckoutPricing | null>(null);
   const displayedSubtotal = pricing?.subtotal ?? subtotal;
   const displayedTotal = pricing?.total ?? subtotal;
+  const phoneDigits = form.phone.replace(/\D/g, "").slice(-10);
+  const pincodeDigits = form.pincode.replace(/\D/g, "");
+  const normalizedAddress = {
+    ...form,
+    fullName: form.fullName.trim(),
+    phone: phoneDigits,
+    addressLine1: form.addressLine1.trim(),
+    addressLine2: form.addressLine2.trim(),
+    city: form.city.trim(),
+    state: form.state.trim(),
+    pincode: pincodeDigits,
+  };
 
   useEffect(() => {
     setCouponCode(sessionStorage.getItem("peher-coupon-code") || "");
@@ -136,11 +148,11 @@ function Checkout() {
 
   const isValid =
     form.fullName.trim().length > 1 &&
-    /^[0-9]{10}$/.test(form.phone.trim()) &&
-    form.addressLine1.trim().length > 3 &&
+    phoneDigits.length === 10 &&
+    form.addressLine1.trim().length >= 3 &&
     form.city.trim().length > 1 &&
     form.state.trim().length > 1 &&
-    /^[0-9]{6}$/.test(form.pincode.trim());
+    pincodeDigits.length === 6;
 
   const saveOrder = async (
     razorpayOrderId: string,
@@ -161,7 +173,7 @@ function Checkout() {
       },
       body: JSON.stringify({
         items: orderItems,
-        address: form,
+        address: normalizedAddress,
         couponCode: pricing?.coupon?.code || couponCode,
         razorpayOrderId,
         razorpayPaymentId,
@@ -270,7 +282,7 @@ function Checkout() {
         prefill: {
           name: form.fullName,
           email: user?.email || "",
-          contact: form.phone,
+          contact: phoneDigits,
         },
         theme: { color: "#111111" },
         retry: { enabled: true },
