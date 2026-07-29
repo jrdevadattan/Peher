@@ -81,6 +81,19 @@ router.get("/categories", async (_req, res) => {
   res.json(data || []);
 });
 
+router.get("/seo/pages", async (_req, res) => {
+  const { data, error } = await supabase
+    .from("seo_pages")
+    .select(
+      "id, path, title, description, include_in_sitemap, include_in_llms, is_indexable, sort_order, updated_at",
+    )
+    .eq("is_indexable", true)
+    .order("sort_order")
+    .order("path");
+  if (error) return res.status(500).json({ error: "Could not load sitemap pages" });
+  res.json(data || []);
+});
+
 router.get("/products/:productId/reviews", async (req, res) => {
   const { data, error } = await supabase
     .from("reviews")

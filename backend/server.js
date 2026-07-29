@@ -10,15 +10,35 @@ const couponsRouter = require("./routes/coupons");
 const adminRouter = require("./routes/admin");
 
 const app = express();
+const defaultOrigins = [
+  "https://peher.studio",
+  "https://www.peher.studio",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
+];
+const configuredOrigins = [
+  ...defaultOrigins,
+  ...(process.env.CLIENT_ORIGIN || "").split(","),
+]
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .map((value) => {
+    try {
+      return new URL(value).origin;
+    } catch {
+      throw new Error(`CLIENT_ORIGIN contains an invalid origin: ${value}`);
+    }
+  });
+const allowedOrigins = new Set(configuredOrigins);
+
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
     origin(origin, callback) {
-      const allowed = (process.env.CLIENT_ORIGIN || "http://localhost:8080,http://localhost:8081")
-        .split(",")
-        .map((value) => value.trim());
-      if (!origin || allowed.includes(origin)) return callback(null, true);
+      if (!origin || allowedOrigins.has(origin)) return callback(null, true);
       callback(new Error("Origin is not allowed by CORS"));
     },
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],

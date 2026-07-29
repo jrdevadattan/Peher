@@ -138,6 +138,25 @@ export type StoreSettings = {
   publicSiteUrl: string;
 };
 
+export type AdminSeoPage = {
+  id: string;
+  path: string;
+  title: string;
+  description: string;
+  includeInSitemap: boolean;
+  includeInLlms: boolean;
+  isIndexable: boolean;
+  sortOrder: number;
+  updatedAt: string;
+};
+
+export type IndexNowResult = {
+  accepted: boolean;
+  statusCode: number;
+  submitted: number;
+  keyLocation: string;
+};
+
 type HomepageBannerRow = {
   id: string;
   title: string;
@@ -542,6 +561,48 @@ export async function saveStoreSettings(settings: StoreSettings) {
   });
 }
 
+function mapAdminSeoPage(data: Record<string, any>): AdminSeoPage {
+  return {
+    id: data.id,
+    path: data.path,
+    title: data.title,
+    description: data.description ?? "",
+    includeInSitemap: Boolean(data.include_in_sitemap),
+    includeInLlms: Boolean(data.include_in_llms),
+    isIndexable: Boolean(data.is_indexable),
+    sortOrder: Number(data.sort_order ?? 0),
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function getAdminSeoPages() {
+  const data = await serverApi<Record<string, any>[]>("/admin/seo/pages", { auth: true });
+  return data.map(mapAdminSeoPage);
+}
+
+export async function saveAdminSeoPage(page: AdminSeoPage) {
+  const data = await serverApi<Record<string, any>>(
+    `/admin/seo/pages${page.id ? `/${page.id}` : ""}`,
+    {
+      method: page.id ? "PATCH" : "POST",
+      auth: true,
+      body: JSON.stringify(page),
+    },
+  );
+  return mapAdminSeoPage(data);
+}
+
+export async function deleteAdminSeoPage(id: string) {
+  await serverApi(`/admin/seo/pages/${id}`, { method: "DELETE", auth: true });
+}
+
+export async function submitAllUrlsToIndexNow() {
+  return serverApi<IndexNowResult>("/admin/seo/indexnow", {
+    method: "POST",
+    auth: true,
+  });
+}
+
 function mapHomepageBanner(row: HomepageBannerRow): HomepageBanner {
   return {
     id: row.id,
@@ -612,10 +673,7 @@ export async function queueMarketingCampaign(subject: string, content: string) {
   return data.audienceCount;
 }
 
-export async function updateMarketingCampaign(
-  campaignId: string,
-  status: "Queued" | "Cancelled",
-) {
+export async function updateMarketingCampaign(campaignId: string, status: "Queued" | "Cancelled") {
   await serverApi(`/admin/marketing/${campaignId}`, {
     method: "PATCH",
     auth: true,
@@ -691,11 +749,7 @@ export async function savePaymentSettings(settings: PaymentSettings) {
   });
 }
 
-export async function updateAdminMembership(
-  id: string,
-  role: AdminRole,
-  isActive: boolean,
-) {
+export async function updateAdminMembership(id: string, role: AdminRole, isActive: boolean) {
   await serverApi(`/admin/memberships/${id}`, {
     method: "PATCH",
     auth: true,

@@ -107,6 +107,7 @@ function SignupPage() {
 
             <div className="flex justify-center">
               <GoogleLogin
+                use_fedcm_for_button
                 onSuccess={(res) => {
                   if (res.credential) {
                     loginWithGoogle(res.credential)

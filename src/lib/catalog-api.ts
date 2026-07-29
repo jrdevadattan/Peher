@@ -105,6 +105,18 @@ export type Category = {
   image: string;
 };
 
+export type SeoPage = {
+  id: string;
+  path: string;
+  title: string;
+  description: string;
+  includeInSitemap: boolean;
+  includeInLlms: boolean;
+  isIndexable: boolean;
+  sortOrder: number;
+  updatedAt: string;
+};
+
 type ProductRow = Record<string, any>;
 
 function mapProduct(row: ProductRow): AdminProduct {
@@ -186,6 +198,21 @@ export async function getCategories() {
     slug: category.slug,
     description: category.description ?? "",
     image: getProductMediaUrl(category.image_path),
+  }));
+}
+
+export async function getSeoPages() {
+  const data = await serverApi<ProductRow[]>("/catalog/seo/pages");
+  return data.map((page): SeoPage => ({
+    id: page.id,
+    path: page.path,
+    title: page.title,
+    description: page.description ?? "",
+    includeInSitemap: Boolean(page.include_in_sitemap),
+    includeInLlms: Boolean(page.include_in_llms),
+    isIndexable: Boolean(page.is_indexable),
+    sortOrder: Number(page.sort_order ?? 0),
+    updatedAt: page.updated_at,
   }));
 }
 

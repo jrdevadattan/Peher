@@ -8,17 +8,12 @@ export const Route = createFileRoute("/robots.txt")({
       GET: async () => {
         const settings = await getStorefrontSettings();
         const robots = [
+          "# PEHER permits all standards-compliant search and AI crawlers.",
           "User-agent: *",
           "Allow: /",
-          "Disallow: /admin",
-          "Disallow: /dashboard",
-          "Disallow: /checkout",
-          "Disallow: /cart",
-          "Disallow: /wishlist",
-          "Disallow: /login",
-          "Disallow: /signup",
           "",
           `Sitemap: ${absoluteUrl(settings, "/sitemap.xml")}`,
+          `# AI-readable site guide: ${absoluteUrl(settings, "/llms.txt")}`,
           "",
         ].join("\n");
 

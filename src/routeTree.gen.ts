@@ -18,6 +18,7 @@ import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as JournalRouteImport } from './routes/journal'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MerchantFeedDotxmlRouteImport } from './routes/merchant-feed[.]xml'
 import { Route as NewArrivalsRouteImport } from './routes/new-arrivals'
@@ -74,6 +75,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/journal': typeof JournalRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/journal': typeof JournalRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/journal': typeof JournalRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/journal'
+    | '/llms.txt'
     | '/login'
     | '/merchant-feed.xml'
     | '/new-arrivals'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/journal'
+    | '/llms.txt'
     | '/login'
     | '/merchant-feed.xml'
     | '/new-arrivals'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/journal'
+    | '/llms.txt'
     | '/login'
     | '/merchant-feed.xml'
     | '/new-arrivals'
@@ -289,6 +301,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   JournalRoute: typeof JournalRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   MerchantFeedDotxmlRoute: typeof MerchantFeedDotxmlRoute
   NewArrivalsRoute: typeof NewArrivalsRoute
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/journal'
       fullPath: '/journal'
       preLoaderRoute: typeof JournalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -465,6 +485,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   JournalRoute: JournalRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   MerchantFeedDotxmlRoute: MerchantFeedDotxmlRoute,
   NewArrivalsRoute: NewArrivalsRoute,

@@ -6,6 +6,7 @@ const requirePermission = require("../middleware/requirePermission");
 const supabase = require("../lib/supabase");
 const { publicError, safeErrorMessage } = require("../lib/http-error");
 const { inspectImage } = require("../lib/image-upload");
+const { submitIndexNow } = require("../lib/indexnow");
 
 const router = express.Router();
 const upload = multer({
@@ -42,6 +43,33 @@ async function logAction(req, action, details) {
     details,
     ip_address: req.ip,
   });
+}
+
+async function submitSitePaths(paths) {
+  const { data: settings, error } = await supabase
+    .from("store_settings")
+    .select("public_site_url")
+    .eq("id", "default")
+    .single();
+  if (error || !settings?.public_site_url) {
+    throw new Error("The public site URL is not configured.");
+  }
+
+  const urls = paths.map((path) => new URL(path || "/", settings.public_site_url).toString());
+  return submitIndexNow(settings.public_site_url, urls);
+}
+
+async function notifyIndexNowSafely(req, paths) {
+  try {
+    const result = await submitSitePaths(paths);
+    await logAction(req, "IndexNow Submitted", `${result.submitted} changed URLs accepted`);
+  } catch (error) {
+    await logAction(
+      req,
+      "IndexNow Retry Required",
+      safeErrorMessage(error, "The changed URLs could not be submitted."),
+    );
+  }
 }
 
 function requireAdminRole(...roles) {
@@ -229,6 +257,14 @@ async function saveProduct(req, res) {
       if (imagesError) throw imagesError;
     }
     await logAction(req, req.params.id ? "Product Updated" : "Product Created", payload.name);
+    if (payload.status === "Published") {
+      await notifyIndexNowSafely(req, [
+        `/product/${payload.slug}`,
+        "/sitemap.xml",
+        "/merchant-feed.xml",
+        "/llms.txt",
+      ]);
+    }
     res.status(req.params.id ? 200 : 201).json({ id: product.id });
   } catch (error) {
     res.status(400).json({ error: safeErrorMessage(error, "Product could not be saved.") });
@@ -243,10 +279,16 @@ router.delete("/products/:id", requirePermission("products"), async (req, res) =
     .from("products")
     .delete()
     .eq("id", req.params.id)
-    .select("name, sku")
+    .select("name, sku, slug")
     .single();
   if (error) return res.status(400).json({ error: "Product could not be deleted." });
   await logAction(req, "Product Deleted", `${data.name} (${data.sku})`);
+  await notifyIndexNowSafely(req, [
+    `/product/${data.slug}`,
+    "/sitemap.xml",
+    "/merchant-feed.xml",
+    "/llms.txt",
+  ]);
   res.status(204).end();
 });
 
@@ -269,10 +311,16 @@ router.patch("/products/:id/visibility", requirePermission("products"), async (r
     .from("products")
     .update({ status })
     .eq("id", req.params.id)
-    .select("name, sku")
+    .select("name, sku, slug")
     .single();
   if (error) return res.status(400).json({ error: "Product visibility could not be updated." });
   await logAction(req, status === "Hidden" ? "Product Hidden" : "Product Published", data.name);
+  await notifyIndexNowSafely(req, [
+    `/product/${data.slug}`,
+    "/sitemap.xml",
+    "/merchant-feed.xml",
+    "/llms.txt",
+  ]);
   res.json({ status });
 });
 
@@ -716,6 +764,115 @@ router.get("/memberships", requirePermission("settings"), async (_req, res) => {
     .order("created_at");
   if (error) return res.status(500).json({ error: "Could not load admin memberships" });
   res.json(data || []);
+});
+
+function seoPagePayload(input, userId) {
+  const rawPath = String(input.path ?? "").trim();
+  const path = rawPath === "/" ? "" : rawPath.replace(/\/+$/, "");
+  if (path && (!/^\/[a-z0-9][a-z0-9/_-]*$/.test(path) || path.includes("//"))) {
+    throw publicError("Use a lowercase site path such as /about or /journal/story.");
+  }
+
+  const title = String(input.title || "").trim();
+  const description = String(input.description || "").trim();
+  if (title.length < 2 || title.length > 120) {
+    throw publicError("SEO page titles must contain 2 to 120 characters.");
+  }
+  if (description.length > 500) {
+    throw publicError("SEO page descriptions cannot exceed 500 characters.");
+  }
+
+  return {
+    path,
+    title,
+    description,
+    include_in_sitemap: input.includeInSitemap !== false,
+    include_in_llms: input.includeInLlms !== false,
+    is_indexable: input.isIndexable !== false,
+    sort_order: Math.max(0, Math.trunc(Number(input.sortOrder) || 0)),
+    updated_by: userId,
+  };
+}
+
+router.get("/seo/pages", requirePermission("seo"), async (_req, res) => {
+  const { data, error } = await supabase
+    .from("seo_pages")
+    .select("*")
+    .order("sort_order")
+    .order("path");
+  if (error) return res.status(500).json({ error: "Could not load sitemap pages" });
+  res.json(data || []);
+});
+
+router.post("/seo/pages", requirePermission("seo"), async (req, res) => {
+  try {
+    const payload = seoPagePayload(req.body, req.user.id);
+    const { data, error } = await supabase.from("seo_pages").insert(payload).select("*").single();
+    if (error) throw error;
+    await logAction(req, "SEO Page Added", data.path || "/");
+    await notifyIndexNowSafely(req, [data.path || "/", "/sitemap.xml", "/llms.txt"]);
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(400).json({ error: safeErrorMessage(error, "SEO page could not be added.") });
+  }
+});
+
+router.patch("/seo/pages/:id", requirePermission("seo"), async (req, res) => {
+  try {
+    const payload = seoPagePayload(req.body, req.user.id);
+    const { data, error } = await supabase
+      .from("seo_pages")
+      .update(payload)
+      .eq("id", req.params.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+    await logAction(req, "SEO Page Updated", data.path || "/");
+    await notifyIndexNowSafely(req, [data.path || "/", "/sitemap.xml", "/llms.txt"]);
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: safeErrorMessage(error, "SEO page could not be updated.") });
+  }
+});
+
+router.delete("/seo/pages/:id", requirePermission("seo"), async (req, res) => {
+  const { data, error } = await supabase
+    .from("seo_pages")
+    .delete()
+    .eq("id", req.params.id)
+    .select("path")
+    .single();
+  if (error) return res.status(400).json({ error: "SEO page could not be deleted." });
+  await logAction(req, "SEO Page Deleted", data.path || "/");
+  await notifyIndexNowSafely(req, [data.path || "/", "/sitemap.xml", "/llms.txt"]);
+  res.status(204).end();
+});
+
+router.post("/seo/indexnow", requirePermission("seo"), async (req, res) => {
+  try {
+    const [{ data: pages, error: pagesError }, { data: products, error: productsError }] =
+      await Promise.all([
+        supabase.from("seo_pages").select("path").eq("is_indexable", true),
+        supabase.from("products").select("slug").eq("status", "Published"),
+      ]);
+    if (pagesError || productsError) throw pagesError || productsError;
+
+    const paths = [
+      ...(pages || []).map((page) => page.path || "/"),
+      ...(products || []).map((product) => `/product/${product.slug}`),
+      "/sitemap.xml",
+      "/merchant-feed.xml",
+      "/llms.txt",
+      "/robots.txt",
+    ];
+    const result = await submitSitePaths(paths);
+    await logAction(req, "IndexNow Full Submission", `${result.submitted} URLs accepted`);
+    res.json(result);
+  } catch (error) {
+    res.status(502).json({
+      error: safeErrorMessage(error, "IndexNow did not accept the URL submission."),
+    });
+  }
 });
 
 router.get("/settings", requirePermission("settings"), async (_req, res) => {

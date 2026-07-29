@@ -1,18 +1,5 @@
 import type { AdminProduct, ProductReview, StorefrontSettings } from "@/lib/catalog-api";
 
-export const PUBLIC_ROUTES = [
-  "",
-  "/shop",
-  "/new-arrivals",
-  "/collections",
-  "/about",
-  "/journal",
-  "/contact",
-  "/shipping",
-  "/returns",
-  "/size-guide",
-] as const;
-
 export function absoluteUrl(settings: StorefrontSettings, path = "") {
   const normalizedPath = path && !path.startsWith("/") ? `/${path}` : path;
   return `${settings.publicSiteUrl}${normalizedPath}`;
