@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { exchangeGoogleIdToken } from "@/lib/google-auth";
 
 type User = { id: string; name: string; email: string };
 
@@ -9,10 +8,9 @@ type AuthContextType = {
   user: User | null;
   token: string | null;
   loading: boolean;
-  googleAuthEnabled: boolean;
   signup: (name: string, email: string, password: string, confirmPassword: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (credential: string, nonce: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -34,7 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const googleAuthEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
   const applySession = (session: Session | null) => {
     setToken(session?.access_token ?? null);
@@ -68,8 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
-  const loginWithGoogle = async (credential: string, nonce: string) => {
-    await exchangeGoogleIdToken(supabase.auth, credential, nonce);
+  const loginWithGoogle = async () => {
+    const redirectTo =
+      typeof window === "undefined" ? undefined : `${window.location.origin}/login`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+      },
+    });
+    if (error) throw error;
   };
 
   const logout = async () => {
@@ -83,7 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         loading,
-        googleAuthEnabled,
         signup,
         login,
         loginWithGoogle,

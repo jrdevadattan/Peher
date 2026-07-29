@@ -55,6 +55,11 @@ export function apiUrl(path: string) {
   return `${getApiBase()}${path}`;
 }
 
+type ApiError = Error & {
+  status?: number;
+  payload?: unknown;
+};
+
 export async function serverApi<T>(
   path: string,
   options: RequestInit & { auth?: boolean } = {},
@@ -82,7 +87,12 @@ export async function serverApi<T>(
   if (response.status === 204) return undefined as T;
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || "The server could not process this request.");
+    const error = new Error(
+      (payload as { error?: string }).error || "The server could not process this request.",
+    ) as ApiError;
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
   return payload as T;
 }

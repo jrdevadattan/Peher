@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminAuth } from "@/lib/admin-auth-context";
 import {
@@ -54,7 +54,6 @@ import {
   Image as ImageIcon,
   Globe,
   Database,
-  Sliders,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -63,10 +62,9 @@ import {
   Sun,
   Plus,
   X,
-  Sparkles,
-  Command,
   CheckCheck,
   RefreshCw,
+  Menu,
 } from "lucide-react";
 
 export type AdminTab =
@@ -117,11 +115,95 @@ const sidebarMenuItems = [
   { id: "backup", label: "Backup & Restore", icon: Database, permission: "settings" },
 ];
 
+function NotificationPanel({
+  notificationCenter,
+  onOpen,
+  onMarkAllRead,
+  onClose,
+  onShowAll,
+}: {
+  notificationCenter: ReturnType<typeof useAdminNotifications>;
+  onOpen: (notification: AdminNotification) => Promise<void>;
+  onMarkAllRead: () => Promise<void>;
+  onClose: () => void;
+  onShowAll: () => void;
+}) {
+  return (
+    <div className="absolute right-0 top-11 z-50 w-[min(22rem,calc(100vw-1.5rem))] space-y-3 rounded-xl border border-border bg-card p-4 shadow-2xl fade-up">
+      <div className="flex items-center justify-between border-b border-border pb-2">
+        <div>
+          <p className="font-serif text-lg font-bold">Order Notifications</p>
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
+            {notificationCenter.connectionState === "live"
+              ? "Realtime connected"
+              : "Polling and retry active"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => void onMarkAllRead()}
+            disabled={notificationCenter.unreadCount === 0}
+            title="Mark all read"
+            className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+          >
+            <CheckCheck className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => void notificationCenter.retry()}
+            title="Retry notification sync"
+            className="p-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${
+                notificationCenter.connectionState === "retrying" ? "animate-spin" : ""
+              }`}
+            />
+          </button>
+          <button onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2 text-xs">
+        {notificationCenter.isLoading &&
+          Array.from({ length: 3 }, (_, index) => <Skeleton key={index} className="h-14 w-full" />)}
+        {!notificationCenter.isLoading &&
+          notificationCenter.notifications.slice(0, 5).map((notification) => (
+            <button
+              key={notification.id}
+              onClick={() => void onOpen(notification)}
+              className={`w-full rounded-lg p-2.5 text-left transition hover:bg-muted ${
+                notification.isRead ? "bg-muted/30" : "bg-[#D8E7D2]/25"
+              }`}
+            >
+              <p className="font-semibold text-foreground">{notification.title}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {notification.message} · {new Date(notification.createdAt).toLocaleString("en-IN")}
+              </p>
+            </button>
+          ))}
+        {!notificationCenter.isLoading && notificationCenter.notifications.length === 0 && (
+          <p className="py-5 text-center text-muted-foreground">No order notifications yet.</p>
+        )}
+        {notificationCenter.notifications.length > 5 && (
+          <button
+            onClick={onShowAll}
+            className="w-full pt-2 text-center text-[10px] font-semibold uppercase tracking-wider underline underline-offset-4"
+          >
+            View all notifications
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AdminLayout() {
   const queryClient = useQueryClient();
   const { adminUser, logout, hasPermission } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -140,18 +222,13 @@ export function AdminLayout() {
   const pendingOrderCount = liveOrders.filter((order) =>
     ["Pending", "Confirmed"].includes(order.deliveryStatus),
   ).length;
-  const lowStockCount = liveProducts.filter(
-    (product) => product.stock <= 10,
-  ).length;
+  const lowStockCount = liveProducts.filter((product) => product.stock <= 10).length;
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const searchResults = normalizedSearch
     ? [
         ...liveProducts
           .filter((product) =>
-            [product.name, product.sku, product.category]
-              .join(" ")
-              .toLowerCase()
-              .includes(normalizedSearch),
+            [product.name, product.sku, product.category].join(" ").toLowerCase().includes(normalizedSearch),
           )
           .slice(0, 5)
           .map((product) => ({
@@ -194,7 +271,6 @@ export function AdminLayout() {
     await queryClient.invalidateQueries({ queryKey: ["admin", "notifications"] });
   };
 
-  // Toggle Dark Mode Class on Document root
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("peher-admin-theme");
     const savedSidebar = window.localStorage.getItem("peher-admin-sidebar");
@@ -212,13 +288,9 @@ export function AdminLayout() {
   }, [darkMode]);
 
   useEffect(() => {
-    window.localStorage.setItem(
-      "peher-admin-sidebar",
-      sidebarCollapsed ? "collapsed" : "expanded",
-    );
+    window.localStorage.setItem("peher-admin-sidebar", sidebarCollapsed ? "collapsed" : "expanded");
   }, [sidebarCollapsed]);
 
-  // Global Ctrl+K shortcut for search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -229,6 +301,15 @@ export function AdminLayout() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileSidebarOpen]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -292,234 +373,232 @@ export function AdminLayout() {
   };
 
   return (
-    <div className={`min-h-screen bg-background text-foreground flex transition-colors duration-300 font-sans ${darkMode ? "dark" : ""}`}>
-      {/* LEFT COLLAPSIBLE SIDEBAR */}
-      <aside
-        className={`fixed lg:sticky top-0 h-screen z-40 bg-card border-r border-border flex flex-col justify-between transition-all duration-300 ${
-          sidebarCollapsed ? "w-20" : "w-64"
-        }`}
-      >
-        {/* Brand Section */}
-        <div>
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <div className={`flex items-center gap-3 overflow-hidden ${sidebarCollapsed ? "justify-center w-full" : ""}`}>
-              <div className="h-9 w-9 shrink-0 rounded-lg bg-neutral-900 p-1">
-                <PeherLogo variant="mark" tone="light" className="h-full w-full" />
-              </div>
-              {!sidebarCollapsed && (
-                <div>
-                  <h2 className="font-serif text-xl tracking-[0.2em] font-bold leading-tight">PEHER</h2>
-                  <p className="text-[9px] tracking-[0.24em] text-muted-foreground uppercase">ATELIER ADMIN</p>
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="hidden lg:flex p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-            >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-          </div>
+    <div
+      className={`min-h-screen bg-background text-foreground font-sans transition-colors duration-300 ${
+        darkMode ? "dark" : ""
+      }`}
+    >
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+        />
+      )}
 
-          {/* Sidebar Menu Items */}
-          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
-            {sidebarMenuItems.filter((item) => item.permission === "*" || hasPermission(item.permission)).map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              const badge =
-                item.id === "orders"
-                  ? pendingOrderCount
-                  : item.id === "notifications"
-                    ? notificationCenter.unreadCount
-                  : item.id === "inventory"
-                    ? lowStockCount
-                    : 0;
-              return (
+      <div className="flex min-h-screen">
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col justify-between border-r border-border bg-card transition-all duration-300 lg:sticky lg:translate-x-0 ${
+            sidebarCollapsed ? "w-20" : "w-72 lg:w-64"
+          } ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <div>
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <div
+                className={`flex items-center gap-3 overflow-hidden ${
+                  sidebarCollapsed ? "w-full justify-center" : ""
+                }`}
+              >
+                <div className="h-9 w-9 shrink-0 rounded-lg bg-neutral-900 p-1">
+                  <PeherLogo variant="mark" tone="light" className="h-full w-full" />
+                </div>
+                {!sidebarCollapsed && (
+                  <div>
+                    <h2 className="font-serif text-xl font-bold leading-tight tracking-[0.2em]">
+                      PEHER
+                    </h2>
+                    <p className="text-[9px] uppercase tracking-[0.24em] text-muted-foreground">
+                      Atelier Admin
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
                 <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as AdminTab)}
-                  title={sidebarCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition ${
-                    isActive
-                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black shadow-xs"
-                      : "text-foreground/70 hover:bg-muted hover:text-foreground"
-                  } ${sidebarCollapsed ? "justify-center px-0" : ""}`}
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  className="hidden rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:flex"
                 >
-                  <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-                  {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  {!sidebarCollapsed && badge > 0 && (
-                    <span className="ml-auto bg-[#D8E7D2] text-black text-[9px] font-bold px-2 py-0.5 rounded-full">
-                      {badge}
-                    </span>
+                  {sidebarCollapsed ? (
+                    <ChevronRight className="w-4 h-4" />
+                  ) : (
+                    <ChevronLeft className="w-4 h-4" />
                   )}
                 </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* User Footer Section */}
-        <div className="p-3 border-t border-border bg-muted/20">
-          <div className={`flex items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""}`}>
-            {adminUser?.avatar ? (
-              <img src={adminUser.avatar} alt={adminUser.name} className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
-            ) : (
-              <div className="h-9 w-9 shrink-0 rounded-full bg-neutral-900 p-1"><PeherLogo variant="mark" tone="light" className="h-full w-full" /></div>
-            )}
-            {!sidebarCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-foreground truncate">{adminUser?.name}</p>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{adminUser?.role}</p>
+                <button
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            )}
-            <button onClick={logout} title="Logout" className="p-2 text-muted-foreground hover:text-red-600 rounded-lg">
-              <LogOut className="w-4 h-4" />
-            </button>
+            </div>
+
+            <nav className="max-h-[calc(100vh-140px)] space-y-1 overflow-y-auto p-3">
+              {sidebarMenuItems
+                .filter((item) => item.permission === "*" || hasPermission(item.permission))
+                .map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  const badge =
+                    item.id === "orders"
+                      ? pendingOrderCount
+                      : item.id === "notifications"
+                        ? notificationCenter.unreadCount
+                        : item.id === "inventory"
+                          ? lowStockCount
+                          : 0;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as AdminTab);
+                        setMobileSidebarOpen(false);
+                      }}
+                      title={sidebarCollapsed ? item.label : undefined}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
+                        isActive
+                          ? "bg-neutral-900 text-white shadow-xs dark:bg-neutral-100 dark:text-black"
+                          : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                      } ${sidebarCollapsed ? "justify-center px-0" : ""}`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                      {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                      {!sidebarCollapsed && badge > 0 && (
+                        <span className="ml-auto rounded-full bg-[#D8E7D2] px-2 py-0.5 text-[9px] font-bold text-black">
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+            </nav>
           </div>
-        </div>
-      </aside>
 
-      {/* MAIN DASHBOARD CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* TOP HEADER */}
-        <header className="sticky top-0 z-30 bg-card/90 backdrop-blur border-b border-border px-6 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-3 px-4 py-2 border border-border rounded-lg text-xs text-muted-foreground bg-muted/30 hover:bg-muted transition w-48 md:w-80"
-            >
-              <Search className="w-4 h-4" />
-              <span>Search products, orders, customers...</span>
-              <kbd className="ml-auto text-[9px] uppercase font-mono bg-border px-1.5 py-0.5 rounded">Ctrl K</kbd>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Quick Actions Dropdown */}
-            <button
-              onClick={() => setActiveTab("products")}
-              className="hidden sm:inline-flex items-center gap-1.5 bg-neutral-900 text-white dark:bg-white dark:text-black px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#D8E7D2] hover:text-black transition"
-            >
-              <Plus className="w-4 h-4" /> Add Product
-            </button>
-
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg border border-border hover:bg-muted text-foreground transition"
-              title="Toggle Dark/Light Mode"
-            >
-              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Notifications Icon */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="p-2 rounded-lg border border-border hover:bg-muted relative text-foreground transition"
-                aria-label={`Notifications, ${notificationCenter.unreadCount} unread`}
-              >
-                <Bell className="w-4 h-4" />
-                {notificationCenter.unreadCount > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-emerald-600 px-1 text-[8px] font-bold text-white">
-                    {notificationCenter.unreadCount > 99
-                      ? "99+"
-                      : notificationCenter.unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <div className="absolute right-0 top-11 w-80 bg-card border border-border rounded-xl shadow-2xl p-4 z-50 space-y-3 fade-up">
-                  <div className="flex items-center justify-between border-b border-border pb-2">
-                    <div>
-                      <p className="font-serif text-lg font-bold">Order Notifications</p>
-                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                        {notificationCenter.connectionState === "live"
-                          ? "Realtime connected"
-                          : "Polling and retry active"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => void handleMarkAllNotificationsRead()}
-                        disabled={notificationCenter.unreadCount === 0}
-                        title="Mark all read"
-                        className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                      >
-                        <CheckCheck className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => void notificationCenter.retry()}
-                        title="Retry notification sync"
-                        className="p-1.5 text-muted-foreground hover:text-foreground"
-                      >
-                        <RefreshCw
-                          className={`w-4 h-4 ${
-                            notificationCenter.connectionState === "retrying"
-                              ? "animate-spin"
-                              : ""
-                          }`}
-                        />
-                      </button>
-                      <button onClick={() => setNotificationsOpen(false)} className="p-1.5 text-muted-foreground hover:text-foreground">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    {notificationCenter.isLoading &&
-                      Array.from({ length: 3 }, (_, index) => (
-                        <Skeleton key={index} className="h-14 w-full" />
-                      ))}
-                    {!notificationCenter.isLoading &&
-                      notificationCenter.notifications.slice(0, 5).map((notification) => (
-                      <button
-                        key={notification.id}
-                        onClick={() => void handleNotificationOpen(notification)}
-                        className={`w-full rounded-lg p-2.5 text-left transition hover:bg-muted ${
-                          notification.isRead ? "bg-muted/30" : "bg-[#D8E7D2]/25"
-                        }`}
-                      >
-                        <p className="font-semibold text-foreground">{notification.title}</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">
-                          {notification.message} ·{" "}
-                          {new Date(notification.createdAt).toLocaleString("en-IN")}
-                        </p>
-                      </button>
-                    ))}
-                    {!notificationCenter.isLoading &&
-                      notificationCenter.notifications.length === 0 && (
-                      <p className="py-5 text-center text-muted-foreground">
-                        No order notifications yet.
-                      </p>
-                    )}
-                    {notificationCenter.notifications.length > 5 && (
-                      <button
-                        onClick={() => {
-                          setNotificationsOpen(false);
-                          setActiveTab("notifications");
-                        }}
-                        className="w-full pt-2 text-center text-[10px] font-semibold uppercase tracking-wider underline underline-offset-4"
-                      >
-                        View all notifications
-                      </button>
-                    )}
-                  </div>
+          <div className="border-t border-border bg-muted/20 p-3">
+            <div className={`flex items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""}`}>
+              {adminUser?.avatar ? (
+                <img
+                  src={adminUser.avatar}
+                  alt={adminUser.name}
+                  className="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
+                />
+              ) : (
+                <div className="h-9 w-9 shrink-0 rounded-full bg-neutral-900 p-1">
+                  <PeherLogo variant="mark" tone="light" className="h-full w-full" />
                 </div>
               )}
+              {!sidebarCollapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-foreground">{adminUser?.name}</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {adminUser?.role}
+                  </p>
+                </div>
+              )}
+              <button
+                onClick={logout}
+                title="Logout"
+                className="rounded-lg p-2 text-muted-foreground hover:text-red-600"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
-        </header>
+        </aside>
 
-        {/* VIEW AREA */}
-        <main className="p-6 md:p-8 flex-1">{renderContent()}</main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 border-b border-border bg-card/90 px-4 py-3 backdrop-blur md:px-6 md:py-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileSidebarOpen(true)}
+                  className="inline-flex rounded-lg border border-border p-2 text-foreground transition hover:bg-muted lg:hidden"
+                  aria-label="Open navigation"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+                <div className="min-w-0 lg:hidden">
+                  <p className="truncate font-serif text-lg tracking-[0.22em]">PEHER</p>
+                  <p className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
+                    Admin Console
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  onClick={() => setActiveTab("products")}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-white transition hover:bg-[#D8E7D2] hover:text-black sm:hidden"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </button>
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="rounded-lg border border-border p-2 text-foreground transition hover:bg-muted"
+                  title="Toggle Dark/Light Mode"
+                >
+                  {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setNotificationsOpen(!notificationsOpen)}
+                    className="relative rounded-lg border border-border p-2 text-foreground transition hover:bg-muted"
+                    aria-label={`Notifications, ${notificationCenter.unreadCount} unread`}
+                  >
+                    <Bell className="w-4 h-4" />
+                    {notificationCenter.unreadCount > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-emerald-600 px-1 text-[8px] font-bold text-white">
+                        {notificationCenter.unreadCount > 99 ? "99+" : notificationCenter.unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {notificationsOpen && (
+                    <NotificationPanel
+                      notificationCenter={notificationCenter}
+                      onOpen={handleNotificationOpen}
+                      onMarkAllRead={handleMarkAllNotificationsRead}
+                      onClose={() => setNotificationsOpen(false)}
+                      onShowAll={() => {
+                        setNotificationsOpen(false);
+                        setActiveTab("notifications");
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition hover:bg-muted sm:px-4 md:max-w-md"
+              >
+                <Search className="w-4 h-4" />
+                <span className="truncate">Search products, orders, customers...</span>
+                <kbd className="ml-auto hidden rounded bg-border px-1.5 py-0.5 font-mono text-[9px] uppercase sm:inline-block">
+                  Ctrl K
+                </kbd>
+              </button>
+              <button
+                onClick={() => setActiveTab("products")}
+                className="hidden items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-[#D8E7D2] hover:text-black dark:bg-white dark:text-black sm:inline-flex"
+              >
+                <Plus className="w-4 h-4" />
+                Add Product
+              </button>
+            </div>
+          </header>
+
+          <main className="flex-1 p-4 md:p-6 xl:p-8">{renderContent()}</main>
+        </div>
       </div>
 
-      {/* GLOBAL SEARCH MODAL */}
       {searchOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-start justify-center pt-20 p-4">
-          <div className="bg-card border border-border w-full max-w-xl rounded-xl p-4 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 pt-20 backdrop-blur-xs">
+          <div className="w-full max-w-xl space-y-4 rounded-xl border border-border bg-card p-4 shadow-2xl">
             <div className="flex items-center gap-3 border-b border-border pb-3">
               <Search className="w-5 h-5 text-muted-foreground" />
               <input
@@ -528,17 +607,36 @@ export function AdminLayout() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Type to search products, orders, customers, coupons..."
-                className="w-full text-sm outline-none bg-transparent"
+                className="w-full bg-transparent text-sm outline-none"
               />
-              <button onClick={() => setSearchOpen(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setSearchOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="max-h-80 overflow-y-auto">
-              {!normalizedSearch && <p className="py-4 text-center text-xs text-muted-foreground">Start typing to search live products and orders.</p>}
-              {normalizedSearch && !searchResults.length && <p className="py-4 text-center text-xs text-muted-foreground">No matching products or orders.</p>}
+              {!normalizedSearch && (
+                <p className="py-4 text-center text-xs text-muted-foreground">
+                  Start typing to search live products and orders.
+                </p>
+              )}
+              {normalizedSearch && !searchResults.length && (
+                <p className="py-4 text-center text-xs text-muted-foreground">
+                  No matching products or orders.
+                </p>
+              )}
               {searchResults.map((result) => (
-                <button key={result.id} onClick={() => { setActiveTab(result.tab); setSearchOpen(false); setSearchQuery(""); }} className="flex w-full items-center justify-between rounded-lg p-3 text-left hover:bg-muted">
+                <button
+                  key={result.id}
+                  onClick={() => {
+                    setActiveTab(result.tab);
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg p-3 text-left hover:bg-muted"
+                >
                   <span className="text-sm font-semibold">{result.label}</span>
                   <span className="text-[10px] text-muted-foreground">{result.detail}</span>
                 </button>

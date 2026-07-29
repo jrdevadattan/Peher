@@ -64,23 +64,27 @@ type AdminAuthContextType = {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
+type AdminResolutionError = Error & {
+  status?: number;
+};
+
+function isTerminalAdminAuthError(error: unknown) {
+  const status = (error as AdminResolutionError | undefined)?.status;
+  return status === 401 || status === 403;
+}
+
 async function resolveAdmin(session: Session | null): Promise<AdminUser | null> {
   if (!session) return null;
-  let data;
-  try {
-    data = await serverApi<{
-      membership: {
-        display_name: string;
-        email: string;
-        role: AdminRole;
-        permissions: string[] | null;
-        two_factor_enabled: boolean;
-      };
-      profile: { avatar_path: string | null; last_login_at: string | null } | null;
-    }>("/admin/session", { auth: true });
-  } catch {
-    return null;
-  }
+  const data = await serverApi<{
+    membership: {
+      display_name: string;
+      email: string;
+      role: AdminRole;
+      permissions: string[] | null;
+      two_factor_enabled: boolean;
+    };
+    profile: { avatar_path: string | null; last_login_at: string | null } | null;
+  }>("/admin/session", { auth: true });
   const { membership, profile } = data;
 
   return {
@@ -103,6 +107,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       try {
         setAdminUser(await resolveAdmin(data.session));
+      } catch (error) {
+        if (isTerminalAdminAuthError(error)) {
+          setAdminUser(null);
+        } else {
+          console.error("Admin session bootstrap failed", error);
+        }
       } finally {
         setLoading(false);
       }
@@ -112,7 +122,20 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       window.setTimeout(async () => {
-        setAdminUser(await resolveAdmin(session));
+        if (!session) {
+          setAdminUser(null);
+          setLoading(false);
+          return;
+        }
+        try {
+          setAdminUser(await resolveAdmin(session));
+        } catch (error) {
+          if (isTerminalAdminAuthError(error)) {
+            setAdminUser(null);
+          } else {
+            console.error("Admin session refresh failed", error);
+          }
+        }
         setLoading(false);
       }, 0);
     });
@@ -131,7 +154,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       throw new Error("This account does not have access to the admin console.");
     }
     setAdminUser(resolved);
-    await serverApi("/admin/session/touch", { method: "POST", auth: true });
+    try {
+      await serverApi("/admin/session/touch", { method: "POST", auth: true });
+    } catch (error) {
+      console.error("Admin session touch failed", error);
+    }
   };
 
   const logout = async () => {

@@ -15,6 +15,8 @@ import necklaces from "@/assets/necklaces.jpg";
 import bracelets from "@/assets/bracelets.jpg";
 import earrings from "@/assets/earrings.jpg";
 
+const INSTAGRAM_URL = "https://www.instagram.com/peher.online?igsh=MTA3cmNhOWFsZ3V1OA==";
+
 export const Route = createFileRoute("/")({
   component: HomePage,
   pendingComponent: HomePending,
@@ -205,15 +207,23 @@ function HomePage() {
               laugh with our reels and swoon with every drop.
             </p>
             <a
-              href="#"
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
               className="inline-flex items-center gap-2 mt-6 text-[11px] tracking-[0.24em] uppercase font-semibold border-b border-black pb-1 hover:gap-3 transition-all"
             >
-              <Instagram className="w-4 h-4" strokeWidth={1.5} /> @peher.studio
+              <Instagram className="w-4 h-4" strokeWidth={1.5} /> @peher.online
             </a>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
             {[rings, necklaces, bracelets, earrings, hero, editorial1].map((img, i) => (
-              <a key={i} href="#" className="group relative aspect-square overflow-hidden bg-white">
+              <a
+                key={i}
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative aspect-square overflow-hidden bg-white"
+              >
                 <img
                   src={img}
                   alt=""

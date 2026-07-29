@@ -8,7 +8,6 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import appCss from "../styles.css?url";
 import { CartProvider } from "../lib/cart-context";
@@ -174,7 +173,6 @@ function RootComponent() {
   const settings = Route.useLoaderData();
   const router = useRouter();
   const isAdminRoute = router.state.location.pathname.startsWith("/admin");
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const application = (
     <AuthProvider>
       <CartProvider>
@@ -204,12 +202,6 @@ function RootComponent() {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {googleClientId ? (
-        <GoogleOAuthProvider clientId={googleClientId}>{application}</GoogleOAuthProvider>
-      ) : (
-        application
-      )}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{application}</QueryClientProvider>
   );
 }

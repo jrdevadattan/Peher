@@ -1,5 +1,5 @@
-﻿import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
@@ -8,7 +8,7 @@ export const Route = createFileRoute("/signup")({
 });
 
 function SignupPage() {
-  const { signup, googleAuthEnabled } = useAuth();
+  const { signup, loading, user } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -32,6 +32,13 @@ function SignupPage() {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (loading || !user) return;
+    const redirectTo = sessionStorage.getItem("post-login-redirect");
+    sessionStorage.removeItem("post-login-redirect");
+    navigate({ to: redirectTo || "/dashboard" });
+  }, [loading, navigate, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -97,26 +104,15 @@ function SignupPage() {
           </button>
         </form>
 
-        {googleAuthEnabled && (
-          <>
-            <div className="my-6 flex items-center gap-4">
-              <div className="h-px flex-1 bg-input" />
-              <span className="text-xs text-muted-foreground">OR</span>
-              <div className="h-px flex-1 bg-input" />
-            </div>
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-input" />
+          <span className="text-xs text-muted-foreground">OR</span>
+          <div className="h-px flex-1 bg-input" />
+        </div>
 
-            <div className="flex justify-center">
-              <GoogleSignInButton
-                onAuthenticated={() => {
-                  const redirectTo = sessionStorage.getItem("post-login-redirect");
-                  sessionStorage.removeItem("post-login-redirect");
-                  navigate({ to: redirectTo || "/dashboard" });
-                }}
-                onError={setError}
-              />
-            </div>
-          </>
-        )}
+        <div className="flex justify-center">
+          <GoogleSignInButton onError={setError} />
+        </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
