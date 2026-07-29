@@ -76,13 +76,13 @@ export function ProductCard({ product }: { product: Product }) {
           />
         )}
         {badges.length > 0 && (
-          <div className="absolute top-3 left-3 flex max-w-[calc(100%-4.5rem)] flex-wrap gap-1.5">
+          <div className="absolute left-3 top-3 max-w-[calc(100%-4.5rem)]">
             {badges.map((badge) => (
               <span
                 key={badge.label}
-                className={`rounded-full px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] shadow-sm ${badgeToneClass[badge.tone]}`}
+                className={`inline-flex max-w-full items-center rounded-full px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] shadow-sm ${badgeToneClass[badge.tone]}`}
               >
-                {badge.label}
+                <span className="truncate whitespace-nowrap">{badge.label}</span>
               </span>
             ))}
           </div>

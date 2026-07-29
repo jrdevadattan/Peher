@@ -40,7 +40,7 @@ describe("product storefront badges", () => {
     });
   });
 
-  it("combines admin badge fields and avoids duplicate labels", () => {
+  it("shows only the strongest storefront badge when many labels apply", () => {
     const badges = getProductBadges({
       ...baseProduct,
       stock: 20,
@@ -50,11 +50,15 @@ describe("product storefront badges", () => {
       tags: ["Limited Drop", "Gift Pick"],
     });
 
-    expect(badges.map((badge) => badge.label)).toEqual([
-      "Highly Selling",
-      "Selling Fast",
-      "Limited Drop",
-      "Gift Pick",
-    ]);
+    expect(badges.map((badge) => badge.label)).toEqual(["Highly Selling"]);
+  });
+
+  it("falls back to the first admin tag when there are no stronger labels", () => {
+    expect(
+      getProductBadges({
+        ...baseProduct,
+        tags: ["Luxe", "Handcrafted", "Gold"],
+      }),
+    ).toEqual([{ label: "Luxe", tone: "dark" }]);
   });
 });

@@ -357,9 +357,9 @@ function ProductPage() {
               {badges.map((badge) => (
                 <span
                   key={badge.label}
-                  className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${badgeToneClass[badge.tone]}`}
+                  className={`inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${badgeToneClass[badge.tone]}`}
                 >
-                  {badge.label}
+                  <span className="truncate whitespace-nowrap">{badge.label}</span>
                 </span>
               ))}
             </div>

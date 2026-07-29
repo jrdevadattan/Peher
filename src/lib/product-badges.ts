@@ -7,7 +7,7 @@ export type ProductBadge = {
 
 const LOW_STOCK_LIMIT = 10;
 const ALMOST_GONE_LIMIT = 3;
-const MAX_BADGES = 4;
+const MAX_STOREFRONT_BADGES = 1;
 
 function normalizeLabel(label: string) {
   return label.trim().replace(/\s+/g, " ");
@@ -53,8 +53,8 @@ export function getProductBadges(product: Product): ProductBadge[] {
 
   for (const tag of product.tags ?? []) {
     pushUnique(badges, { label: tag, tone: "dark" });
-    if (badges.length >= MAX_BADGES) break;
+    if (badges.length >= MAX_STOREFRONT_BADGES) break;
   }
 
-  return badges.slice(0, MAX_BADGES);
+  return badges.slice(0, MAX_STOREFRONT_BADGES);
 }
