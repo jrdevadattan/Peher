@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useWishlist } from "@/lib/wishlist-context";
 import { useAuth } from "@/lib/auth-context";
 import { useProducts } from "@/lib/use-catalog";
+import { useCart } from "@/lib/cart-context";
 import { PeherLogo } from "@/components/PeherLogo";
 
 const primaryLinks = [
@@ -29,8 +30,10 @@ export function Navbar() {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const { count: wishlistCount } = useWishlist();
+  const { count: cartCount } = useCart();
   const { user } = useAuth();
   const { data: products = [] } = useProducts();
+  const cartBadgeLabel = cartCount > 99 ? "99+" : String(cartCount);
 
   const results = query.trim()
     ? products.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6)
@@ -130,8 +133,13 @@ export function Navbar() {
                 <span className="hidden md:inline text-[11px] font-medium">{user.name.split(" ")[0]}</span>
               )}
             </Link>
-            <Link to="/cart" aria-label="Cart" className="hover:opacity-70 transition">
+            <Link to="/cart" aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`} className="relative hover:opacity-70 transition">
               <ShoppingBag className="w-[19px] h-[19px]" strokeWidth={1.5} />
+              {cartCount > 0 && (
+                <span className="absolute -right-2.5 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-black px-1 text-[9px] font-semibold leading-none text-white ring-2 ring-white">
+                  {cartBadgeLabel}
+                </span>
+              )}
             </Link>
           </div>
         </div>
