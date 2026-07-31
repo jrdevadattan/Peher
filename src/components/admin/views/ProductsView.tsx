@@ -7,6 +7,7 @@ import {
   saveProduct,
   setProductVisibility,
   uploadProductImage,
+  uploadProductImageFromUrl,
   type AdminProduct,
 } from "@/lib/catalog-api";
 import {
@@ -61,6 +62,7 @@ export function ProductsView() {
   const [busy, setBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [uploadingKind, setUploadingKind] = useState<"primary" | "hover" | null>(null);
+  const [imageUrlDraft, setImageUrlDraft] = useState("");
   const [operationError, setOperationError] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const isEditorBusy = busy || saveBusy || uploadingKind !== null;
@@ -189,6 +191,16 @@ export function ProductsView() {
     }
   };
 
+  const applyUploadedImage = (uploaded: { path: string; url: string }, kind: "primary" | "hover") => {
+    setEditingProduct((current) =>
+      current
+        ? kind === "primary"
+          ? { ...current, image: uploaded.url, imagePath: uploaded.path }
+          : { ...current, imageHover: uploaded.url, imageHoverPath: uploaded.path }
+        : current,
+    );
+  };
+
   const handleImageUpload = async (file: File, kind: "primary" | "hover") => {
     if (!editingProduct) return;
     if (file.size > maxUploadBytes) {
@@ -202,15 +214,32 @@ export function ProductsView() {
         file,
         editingProduct.urlSlug || editingProduct.name || editingProduct.id,
       );
-      setEditingProduct((current) =>
-        current
-          ? kind === "primary"
-            ? { ...current, image: uploaded.url, imagePath: uploaded.path }
-            : { ...current, imageHover: uploaded.url, imageHoverPath: uploaded.path }
-          : current,
-      );
+      applyUploadedImage(uploaded, kind);
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setUploadingKind(null);
+    }
+  };
+
+  const handleImageUrlUpload = async (kind: "primary" | "hover") => {
+    if (!editingProduct) return;
+    const imageUrl = imageUrlDraft.trim();
+    if (!imageUrl) {
+      setOperationError("Paste an image URL first.");
+      return;
+    }
+    setUploadingKind(kind);
+    setOperationError("");
+    try {
+      const uploaded = await uploadProductImageFromUrl(
+        imageUrl,
+        editingProduct.urlSlug || editingProduct.name || editingProduct.id,
+      );
+      applyUploadedImage(uploaded, kind);
+      setImageUrlDraft("");
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : "Image URL upload failed.");
     } finally {
       setUploadingKind(null);
     }
@@ -812,6 +841,32 @@ export function ProductsView() {
                       }}
                     />
                   </label>
+                </div>
+                <div className="mx-auto grid max-w-xl gap-2 sm:grid-cols-[1fr_auto_auto]">
+                  <input
+                    type="url"
+                    value={imageUrlDraft}
+                    onChange={(event) => setImageUrlDraft(event.target.value)}
+                    placeholder="Paste direct image URL"
+                    className="h-10 rounded-lg border border-border bg-card px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    disabled={isEditorBusy}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleImageUrlUpload("primary")}
+                    disabled={isEditorBusy || !imageUrlDraft.trim()}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-[10px] font-semibold uppercase tracking-wider hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Use primary
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleImageUrlUpload("hover")}
+                    disabled={isEditorBusy || !imageUrlDraft.trim()}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-[10px] font-semibold uppercase tracking-wider hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Use hover
+                  </button>
                 </div>
                 {uploadingKind && (
                   <p className="text-[10px] text-muted-foreground">

@@ -1,6 +1,8 @@
 const crypto = require("crypto");
+const dns = require("node:dns").promises;
 const express = require("express");
 const multer = require("multer");
+const net = require("node:net");
 const requireAuth = require("../middleware/auth");
 const requirePermission = require("../middleware/requirePermission");
 const supabase = require("../lib/supabase");
@@ -10,9 +12,10 @@ const { submitIndexNow } = require("../lib/indexnow");
 const { keyMatchesMode } = require("../lib/razorpay-security");
 
 const router = express.Router();
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  limits: { fileSize: MAX_IMAGE_BYTES, files: 1 },
   fileFilter: (_req, file, callback) => {
     if (
       !file.mimetype.startsWith("image/") &&
@@ -97,6 +100,74 @@ async function validateUpload(file) {
   if (!normalized)
     throw publicError("The file content is not a supported JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
   return normalized;
+}
+
+function sanitizeMediaSlug(value) {
+  return String(value || "library")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+async function storeMediaBuffer({ buffer, slug, fallback }) {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    throw publicError("Choose an image to upload.");
+  }
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    throw publicError("Images must be 10 MB or smaller.");
+  }
+  const { extension, mimeType, buffer: normalizedBuffer } = await validateUpload({ buffer });
+  const safeSlug = sanitizeMediaSlug(slug);
+  const path = `catalog/${safeSlug || "library"}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage.from("product-media").upload(path, normalizedBuffer, {
+    cacheControl: "31536000",
+    contentType: mimeType,
+    upsert: false,
+  });
+  if (error) throw publicError(uploadStorageError(error, fallback));
+  return path;
+}
+
+function isPrivateAddress(address) {
+  const ipVersion = net.isIP(address);
+  if (ipVersion === 4) {
+    const [first, second] = address.split(".").map(Number);
+    return (
+      first === 10 ||
+      first === 127 ||
+      first === 0 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    );
+  }
+  if (ipVersion === 6) {
+    const lower = address.toLowerCase();
+    return lower === "::1" || lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe80:");
+  }
+  return false;
+}
+
+async function assertPublicImageUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(String(rawUrl || "").trim());
+  } catch {
+    throw publicError("Enter a valid image URL.");
+  }
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw publicError("Image URL must start with http:// or https://.");
+  }
+  if (!url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".local")) {
+    throw publicError("Image URL must be publicly reachable.");
+  }
+  const addresses = net.isIP(url.hostname)
+    ? [{ address: url.hostname }]
+    : await dns.lookup(url.hostname, { all: true, verbatim: true });
+  if (addresses.some((entry) => isPrivateAddress(entry.address))) {
+    throw publicError("Image URL must be publicly reachable.");
+  }
+  return url.toString();
 }
 
 function uploadStorageError(error, fallback) {
@@ -362,21 +433,62 @@ router.patch("/products/:id/visibility", requirePermission("products"), async (r
 router.post("/media", requirePermission("media"), upload.single("image"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
-    const { extension, mimeType, buffer } = await validateUpload(req.file);
-    const slug = String(req.body.slug || "library")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-    const path = `catalog/${slug || "library"}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const { error } = await supabase.storage.from("product-media").upload(path, buffer, {
-      cacheControl: "31536000",
-      contentType: mimeType,
-      upsert: false,
+    const path = await storeMediaBuffer({
+      buffer: req.file.buffer,
+      slug: req.body.slug,
+      fallback: "Image could not be uploaded.",
     });
-    if (error) return res.status(400).json({ error: uploadStorageError(error, "Image could not be uploaded.") });
     res.status(201).json({ path });
   } catch (error) {
     res.status(400).json({ error: safeErrorMessage(error, "Image could not be uploaded.") });
+  }
+});
+
+router.post("/media/upload", requirePermission("media"), async (req, res) => {
+  try {
+    const encoded = String(req.body.dataBase64 || "");
+    if (!encoded) return res.status(400).json({ error: "Choose an image to upload." });
+    const buffer = Buffer.from(encoded.replace(/^data:[^;]+;base64,/, ""), "base64");
+    const path = await storeMediaBuffer({
+      buffer,
+      slug: req.body.slug,
+      fallback: "Image could not be uploaded.",
+    });
+    res.status(201).json({ path });
+  } catch (error) {
+    res.status(400).json({ error: safeErrorMessage(error, "Image could not be uploaded.") });
+  }
+});
+
+router.post("/media/url", requirePermission("media"), async (req, res) => {
+  try {
+    const imageUrl = await assertPublicImageUrl(req.body.imageUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(imageUrl, {
+      headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8" },
+      redirect: "manual",
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+    if (response.status >= 300 && response.status < 400) {
+      return res.status(400).json({ error: "Paste the final direct image URL, not a redirecting link." });
+    }
+    if (!response.ok) return res.status(400).json({ error: "Image URL could not be downloaded." });
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (contentLength > MAX_IMAGE_BYTES) {
+      return res.status(413).json({ error: "Images must be 10 MB or smaller." });
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const path = await storeMediaBuffer({
+      buffer,
+      slug: req.body.slug,
+      fallback: "Image URL could not be uploaded.",
+    });
+    res.status(201).json({ path });
+  } catch (error) {
+    const fallback = error?.name === "AbortError" ? "Image URL took too long to download." : "Image URL could not be uploaded.";
+    res.status(400).json({ error: safeErrorMessage(error, fallback) });
   }
 });
 

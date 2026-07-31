@@ -78,7 +78,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "16mb" }));
 
 app.post("/api/create-order", ...paymentRouter.createOrderMiddlewares);
 app.post("/api/verify-payment", ...paymentRouter.verifyPaymentMiddlewares);

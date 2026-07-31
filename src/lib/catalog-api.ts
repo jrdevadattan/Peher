@@ -350,15 +350,38 @@ export async function setProductVisibility(product: AdminProduct, hidden: boolea
 }
 
 export async function uploadProductImage(file: File, slug: string) {
-  const body = new FormData();
-  body.append("image", file);
-  body.append("slug", slug);
-  const uploaded = await serverApi<{ path: string }>("/peher-ops-9x7q/media", {
-    method: "POST",
-    auth: true,
-    body,
+  const uploaded = await uploadImagePayload({
+    slug,
+    dataBase64: await fileToBase64(file),
   });
   return { path: uploaded.path, url: getProductMediaUrl(uploaded.path) };
+}
+
+export async function uploadProductImageFromUrl(imageUrl: string, slug: string) {
+  const uploaded = await serverApi<{ path: string }>("/peher-ops-9x7q/media/url", {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({ imageUrl, slug }),
+  });
+  return { path: uploaded.path, url: getProductMediaUrl(uploaded.path) };
+}
+
+async function uploadImagePayload(input: { slug: string; dataBase64: string }) {
+  return serverApi<{ path: string }>("/peher-ops-9x7q/media/upload", {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify(input),
+  });
+}
+
+async function fileToBase64(file: File) {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Image file could not be read."));
+    reader.readAsDataURL(file);
+  });
+  return dataUrl;
 }
 
 export type MediaAsset = {

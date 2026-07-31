@@ -428,14 +428,7 @@ export async function deleteAdminCategory(category: AdminCategory) {
 }
 
 export async function uploadCategoryImage(file: File) {
-  const body = new FormData();
-  body.append("image", file);
-  const uploaded = await serverApi<{ path: string }>("/peher-ops-9x7q/categories/image", {
-    method: "POST",
-    auth: true,
-    body,
-  });
-  return { ...uploaded, url: getProductMediaUrl(uploaded.path) };
+  return uploadProductImage(file, "categories");
 }
 
 export async function getAdminReviews() {
