@@ -1,4 +1,16 @@
-const sharp = require("sharp");
+let sharpModule = null;
+
+function loadSharp() {
+  if (sharpModule) return sharpModule;
+  try {
+    sharpModule = require("sharp");
+    return sharpModule;
+  } catch {
+    throw new Error(
+      "HEIC/HEIF conversion is unavailable in this environment. Please upload JPG, PNG, WebP, or AVIF images.",
+    );
+  }
+}
 
 const IMAGE_SIGNATURES = [
   {
@@ -69,6 +81,7 @@ async function normalizeUploadedImage(file) {
   }
 
   try {
+    const sharp = loadSharp();
     const convertedBuffer = await sharp(file.buffer, { limitInputPixels: false })
       .rotate()
       .jpeg({ quality: 92, mozjpeg: true })
