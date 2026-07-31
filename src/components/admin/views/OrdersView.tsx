@@ -62,7 +62,7 @@ export function OrdersView() {
   const statusOptions = ["All", "Pending", "Confirmed", "Packed", "Shipped", "Delivered", "Cancelled", "Refunded"];
 
   return (
-    <div className="space-y-6 fade-up">
+    <div className="space-y-6">
       {error && <p className="text-xs text-red-600">Orders could not be loaded.</p>}
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -179,8 +179,8 @@ export function OrdersView() {
 
       {/* Order Detail Drawer */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end overflow-y-auto">
-          <div className="bg-card w-full max-w-2xl min-h-screen p-6 md:p-8 space-y-6 shadow-2xl border-l border-border overflow-y-auto">
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex justify-end overflow-hidden">
+          <div className="bg-card w-full max-w-3xl h-dvh p-5 md:p-8 space-y-6 shadow-2xl border-l border-border overflow-y-auto sm:w-[min(92vw,48rem)]">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Order Details</p>
@@ -221,13 +221,13 @@ export function OrdersView() {
             </div>
 
             {/* Customer & Shipping Info */}
-            <div className="grid grid-cols-2 gap-4 text-xs">
+            <div className="grid gap-4 text-xs md:grid-cols-2">
               <div className="p-4 border border-border rounded-xl space-y-2">
                 <p className="font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <User className="w-4 h-4 text-foreground" /> Customer Info
                 </p>
                 <p className="font-bold text-sm">{selectedOrder.customerName}</p>
-                <p>{selectedOrder.customerEmail}</p>
+                <p className="break-words">{selectedOrder.customerEmail}</p>
                 <p>{selectedOrder.customerPhone}</p>
               </div>
 
@@ -249,10 +249,10 @@ export function OrdersView() {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Items</p>
               <div className="divide-y divide-border">
                 {selectedOrder.items.map((item, idx) => (
-                  <div key={idx} className="py-3 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-3">
+                  <div key={idx} className="py-3 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex min-w-0 items-center gap-3">
                       <img src={item.image} alt={item.name} className="w-12 h-14 object-cover rounded bg-muted" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold text-sm">{item.name}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {item.size ? `Size: ${item.size} · ` : ""}Qty: {item.qty}
