@@ -78,7 +78,7 @@ export function AdminLogin() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@peher.studio"
+                placeholder="admin@peher.online"
                 className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder:text-neutral-600 outline-none focus:border-[#D8E7D2] transition"
               />
             </div>

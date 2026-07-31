@@ -26,6 +26,8 @@ const authRouter = require("./routes/auth");
 
 const app = express();
 const defaultOrigins = [
+  "https://peher.online",
+  "https://www.peher.online",
   "https://peher.studio",
   "https://www.peher.studio",
   "http://localhost:8080",
