@@ -118,7 +118,16 @@ function Cart() {
               <h2 className="font-serif text-3xl">Order Summary</h2>
               <dl className="mt-8 space-y-4 text-sm">
                 <Row k="Subtotal" v={`₹${subtotal.toLocaleString("en-IN")}`} />
-                <Row k="Delivery (free from ₹1,500)" v={pricing ? (pricing.shippingCost ? `₹${pricing.shippingCost.toLocaleString("en-IN")}` : "Complimentary") : "Calculating..."} />
+                <Row
+                  k="Delivery"
+                  v={
+                    pricing
+                      ? pricing.shippingCost
+                        ? `₹${pricing.shippingCost.toLocaleString("en-IN")}`
+                        : "Complimentary"
+                      : "Calculating..."
+                  }
+                />
               </dl>
               <div className="border-t border-black/10 mt-6 pt-6 flex items-center justify-between">
                 <span className="eyebrow !text-foreground">Total</span>

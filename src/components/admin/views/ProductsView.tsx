@@ -45,14 +45,6 @@ function normalizeMarketingTag(value: string) {
 }
 
 export function ProductsView() {
-  const allowedImageTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/avif",
-    "image/heic",
-    "image/heif",
-  ];
   const maxUploadBytes = 10 * 1024 * 1024;
   const queryClient = useQueryClient();
   const { data: products = [], isLoading, error: loadError } = useQuery({
@@ -199,10 +191,6 @@ export function ProductsView() {
 
   const handleImageUpload = async (file: File, kind: "primary" | "hover") => {
     if (!editingProduct) return;
-    if (!allowedImageTypes.includes(file.type)) {
-      setOperationError("Please upload a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
-      return;
-    }
     if (file.size > maxUploadBytes) {
       setOperationError("Images must be 10 MB or smaller.");
       return;

@@ -230,7 +230,7 @@ export type ApplicationBackup = {
 };
 
 export async function getAdminOrders() {
-  const data = await serverApi<Record<string, any>[]>("/admin/orders", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/orders", { auth: true });
   return data.map((order): AdminOrder => ({
     id: order.id,
     orderNumber: order.order_number,
@@ -319,7 +319,7 @@ export async function updateOrderStatus(
   order: AdminOrder,
   deliveryStatus: AdminOrder["deliveryStatus"],
 ) {
-  await serverApi(`/admin/orders/${order.id}/status`, {
+  await serverApi(`/peher-ops-9x7q/orders/${order.id}/status`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ deliveryStatus }),
@@ -330,7 +330,7 @@ export async function getAdminCustomers() {
   const data = await serverApi<{
     profiles: Record<string, any>[];
     orders: Record<string, any>[];
-  }>("/admin/customers", { auth: true });
+  }>("/peher-ops-9x7q/customers", { auth: true });
   return data.profiles.map((profile): AdminCustomer => {
     const customerOrders = data.orders.filter((order) => order.customer_id === profile.id);
     return {
@@ -353,7 +353,7 @@ export async function updateCustomerStatus(
   customer: AdminCustomer,
   status: AdminCustomer["status"],
 ) {
-  await serverApi(`/admin/customers/${customer.id}/status`, {
+  await serverApi(`/peher-ops-9x7q/customers/${customer.id}/status`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ status }),
@@ -361,7 +361,7 @@ export async function updateCustomerStatus(
 }
 
 export async function getAdminCoupons() {
-  const data = await serverApi<Record<string, any>[]>("/admin/coupons", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/coupons", { auth: true });
   return data.map((coupon): AdminCoupon => ({
     id: coupon.id,
     code: coupon.code,
@@ -389,7 +389,7 @@ export async function saveCoupon(coupon: AdminCoupon) {
     maxDiscountAmount: coupon.maxDiscountAmount,
     status: coupon.status,
   };
-  await serverApi(`/admin/coupons${coupon.id ? `/${coupon.id}` : ""}`, {
+  await serverApi(`/peher-ops-9x7q/coupons${coupon.id ? `/${coupon.id}` : ""}`, {
     method: coupon.id ? "PATCH" : "POST",
     auth: true,
     body: JSON.stringify(payload),
@@ -397,11 +397,11 @@ export async function saveCoupon(coupon: AdminCoupon) {
 }
 
 export async function deleteCoupon(coupon: AdminCoupon) {
-  await serverApi(`/admin/coupons/${coupon.id}`, { method: "DELETE", auth: true });
+  await serverApi(`/peher-ops-9x7q/coupons/${coupon.id}`, { method: "DELETE", auth: true });
 }
 
 export async function getAdminCategories() {
-  const data = await serverApi<Record<string, any>[]>("/admin/categories", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/categories", { auth: true });
   return data.map((category): AdminCategory => ({
     id: category.id,
     name: category.name,
@@ -416,7 +416,7 @@ export async function getAdminCategories() {
 }
 
 export async function saveAdminCategory(category: AdminCategory) {
-  return serverApi(`/admin/categories${category.id ? `/${category.id}` : ""}`, {
+  return serverApi(`/peher-ops-9x7q/categories${category.id ? `/${category.id}` : ""}`, {
     method: category.id ? "PATCH" : "POST",
     auth: true,
     body: JSON.stringify(category),
@@ -424,13 +424,13 @@ export async function saveAdminCategory(category: AdminCategory) {
 }
 
 export async function deleteAdminCategory(category: AdminCategory) {
-  await serverApi(`/admin/categories/${category.id}`, { method: "DELETE", auth: true });
+  await serverApi(`/peher-ops-9x7q/categories/${category.id}`, { method: "DELETE", auth: true });
 }
 
 export async function uploadCategoryImage(file: File) {
   const body = new FormData();
   body.append("image", file);
-  const uploaded = await serverApi<{ path: string }>("/admin/categories/image", {
+  const uploaded = await serverApi<{ path: string }>("/peher-ops-9x7q/categories/image", {
     method: "POST",
     auth: true,
     body,
@@ -439,7 +439,7 @@ export async function uploadCategoryImage(file: File) {
 }
 
 export async function getAdminReviews() {
-  const data = await serverApi<Record<string, any>[]>("/admin/reviews", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/reviews", { auth: true });
   return data.map((review): AdminReview => ({
     id: review.id,
     productId: review.product_id,
@@ -462,7 +462,7 @@ export async function updateReview(
   review: AdminReview,
   changes: Partial<Pick<AdminReview, "status" | "reply">>,
 ) {
-  await serverApi(`/admin/reviews/${review.id}`, {
+  await serverApi(`/peher-ops-9x7q/reviews/${review.id}`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify(changes),
@@ -470,7 +470,7 @@ export async function updateReview(
 }
 
 export async function getActivityLogs() {
-  const data = await serverApi<Record<string, any>[]>("/admin/activity", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/activity", { auth: true });
   return data.map((entry): ActivityLog => ({
     id: entry.id,
     timestamp: entry.created_at,
@@ -483,7 +483,7 @@ export async function getActivityLogs() {
 }
 
 export async function getAdminNotifications() {
-  const data = await serverApi<Record<string, any>[]>("/admin/notifications", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/notifications", { auth: true });
   return data.map((notification): AdminNotification => ({
     id: notification.id,
     type: notification.type,
@@ -500,7 +500,7 @@ export async function getAdminNotifications() {
 }
 
 export async function markAdminNotificationRead(notificationId: string) {
-  await serverApi("/admin/notifications/read", {
+  await serverApi("/peher-ops-9x7q/notifications/read", {
     method: "POST",
     auth: true,
     body: JSON.stringify({ notificationIds: [notificationId] }),
@@ -509,7 +509,7 @@ export async function markAdminNotificationRead(notificationId: string) {
 
 export async function markAllAdminNotificationsRead(notificationIds: string[]) {
   if (!notificationIds.length) return;
-  await serverApi("/admin/notifications/read", {
+  await serverApi("/peher-ops-9x7q/notifications/read", {
     method: "POST",
     auth: true,
     body: JSON.stringify({ notificationIds }),
@@ -517,7 +517,7 @@ export async function markAllAdminNotificationsRead(notificationIds: string[]) {
 }
 
 export async function retryOrderNotifications() {
-  const data = await serverApi<{ recovered: number }>("/admin/notifications/retry", {
+  const data = await serverApi<{ recovered: number }>("/peher-ops-9x7q/notifications/retry", {
     method: "POST",
     auth: true,
   });
@@ -525,7 +525,7 @@ export async function retryOrderNotifications() {
 }
 
 export async function getAdminMemberships() {
-  const data = await serverApi<Record<string, any>[]>("/admin/memberships", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/memberships", { auth: true });
   return data.map((membership): AdminMembership => ({
     id: membership.user_id,
     name: membership.display_name,
@@ -536,7 +536,7 @@ export async function getAdminMemberships() {
 }
 
 export async function getStoreSettings() {
-  const data = await serverApi<Record<string, any>>("/admin/settings", { auth: true });
+  const data = await serverApi<Record<string, any>>("/peher-ops-9x7q/settings", { auth: true });
   return {
     storeName: data.store_name,
     tagline: data.tagline,
@@ -555,7 +555,7 @@ export async function getStoreSettings() {
 }
 
 export async function saveStoreSettings(settings: StoreSettings) {
-  await serverApi("/admin/settings", {
+  await serverApi("/peher-ops-9x7q/settings", {
     method: "PATCH",
     auth: true,
     body: JSON.stringify(settings),
@@ -577,13 +577,13 @@ function mapAdminSeoPage(data: Record<string, any>): AdminSeoPage {
 }
 
 export async function getAdminSeoPages() {
-  const data = await serverApi<Record<string, any>[]>("/admin/seo/pages", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/seo/pages", { auth: true });
   return data.map(mapAdminSeoPage);
 }
 
 export async function saveAdminSeoPage(page: AdminSeoPage) {
   const data = await serverApi<Record<string, any>>(
-    `/admin/seo/pages${page.id ? `/${page.id}` : ""}`,
+    `/peher-ops-9x7q/seo/pages${page.id ? `/${page.id}` : ""}`,
     {
       method: page.id ? "PATCH" : "POST",
       auth: true,
@@ -594,11 +594,11 @@ export async function saveAdminSeoPage(page: AdminSeoPage) {
 }
 
 export async function deleteAdminSeoPage(id: string) {
-  await serverApi(`/admin/seo/pages/${id}`, { method: "DELETE", auth: true });
+  await serverApi(`/peher-ops-9x7q/seo/pages/${id}`, { method: "DELETE", auth: true });
 }
 
 export async function submitAllUrlsToIndexNow() {
-  return serverApi<IndexNowResult>("/admin/seo/indexnow", {
+  return serverApi<IndexNowResult>("/peher-ops-9x7q/seo/indexnow", {
     method: "POST",
     auth: true,
   });
@@ -620,13 +620,13 @@ function mapHomepageBanner(row: HomepageBannerRow): HomepageBanner {
 }
 
 export async function getAdminHomepageBanners() {
-  const data = await serverApi<HomepageBannerRow[]>("/admin/banners", { auth: true });
+  const data = await serverApi<HomepageBannerRow[]>("/peher-ops-9x7q/banners", { auth: true });
   return data.map(mapHomepageBanner);
 }
 
 export async function saveHomepageBanner(banner: HomepageBanner) {
   const data = await serverApi<HomepageBannerRow>(
-    `/admin/banners${banner.id ? `/${banner.id}` : ""}`,
+    `/peher-ops-9x7q/banners${banner.id ? `/${banner.id}` : ""}`,
     {
       method: banner.id ? "PATCH" : "POST",
       auth: true,
@@ -637,7 +637,7 @@ export async function saveHomepageBanner(banner: HomepageBanner) {
 }
 
 export async function deleteHomepageBanner(banner: HomepageBanner) {
-  await serverApi(`/admin/banners/${banner.id}`, { method: "DELETE", auth: true });
+  await serverApi(`/peher-ops-9x7q/banners/${banner.id}`, { method: "DELETE", auth: true });
 }
 
 export async function uploadHomepageBannerImage(file: File) {
@@ -649,7 +649,7 @@ export async function getMarketingDashboard() {
     subscriber_count: number;
     delivery_configured: boolean;
     campaigns: Record<string, any>[];
-  }>("/admin/marketing", { auth: true });
+  }>("/peher-ops-9x7q/marketing", { auth: true });
   return {
     subscriberCount: data.subscriber_count,
     deliveryConfigured: data.delivery_configured,
@@ -666,7 +666,7 @@ export async function getMarketingDashboard() {
 }
 
 export async function queueMarketingCampaign(subject: string, content: string) {
-  const data = await serverApi<{ audienceCount: number }>("/admin/marketing", {
+  const data = await serverApi<{ audienceCount: number }>("/peher-ops-9x7q/marketing", {
     method: "POST",
     auth: true,
     body: JSON.stringify({ subject, content }),
@@ -675,7 +675,7 @@ export async function queueMarketingCampaign(subject: string, content: string) {
 }
 
 export async function updateMarketingCampaign(campaignId: string, status: "Queued" | "Cancelled") {
-  await serverApi(`/admin/marketing/${campaignId}`, {
+  await serverApi(`/peher-ops-9x7q/marketing/${campaignId}`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ status }),
@@ -689,7 +689,7 @@ export async function getAnalyticsReport(filters: {
   paymentStatus?: string;
 }) {
   const params = new URLSearchParams(filters);
-  return serverApi<AnalyticsReport>(`/admin/analytics?${params}`, { auth: true });
+  return serverApi<AnalyticsReport>(`/peher-ops-9x7q/analytics?${params}`, { auth: true });
 }
 
 function mapShippingMethod(row: Record<string, any>): ShippingMethod {
@@ -707,13 +707,13 @@ function mapShippingMethod(row: Record<string, any>): ShippingMethod {
 }
 
 export async function getShippingMethods() {
-  const data = await serverApi<Record<string, any>[]>("/admin/shipping", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/shipping", { auth: true });
   return data.map(mapShippingMethod);
 }
 
 export async function saveShippingMethod(method: ShippingMethod) {
   const data = await serverApi<Record<string, any>>(
-    `/admin/shipping${method.id ? `/${method.id}` : ""}`,
+    `/peher-ops-9x7q/shipping${method.id ? `/${method.id}` : ""}`,
     {
       method: method.id ? "PATCH" : "POST",
       auth: true,
@@ -724,11 +724,11 @@ export async function saveShippingMethod(method: ShippingMethod) {
 }
 
 export async function deleteShippingMethod(id: string) {
-  await serverApi(`/admin/shipping/${id}`, { method: "DELETE", auth: true });
+  await serverApi(`/peher-ops-9x7q/shipping/${id}`, { method: "DELETE", auth: true });
 }
 
 export async function getPaymentSettings() {
-  const data = await serverApi<Record<string, any>>("/admin/payments", { auth: true });
+  const data = await serverApi<Record<string, any>>("/peher-ops-9x7q/payments", { auth: true });
   return {
     isEnabled: data.is_enabled,
     testMode: data.test_mode,
@@ -744,7 +744,7 @@ export async function getPaymentSettings() {
 }
 
 export async function savePaymentSettings(settings: PaymentSettings) {
-  await serverApi("/admin/payments", {
+  await serverApi("/peher-ops-9x7q/payments", {
     method: "PATCH",
     auth: true,
     body: JSON.stringify(settings),
@@ -752,7 +752,7 @@ export async function savePaymentSettings(settings: PaymentSettings) {
 }
 
 export async function updateAdminMembership(id: string, role: AdminRole, isActive: boolean) {
-  await serverApi(`/admin/memberships/${id}`, {
+  await serverApi(`/peher-ops-9x7q/memberships/${id}`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ role, isActive }),
@@ -760,7 +760,7 @@ export async function updateAdminMembership(id: string, role: AdminRole, isActiv
 }
 
 export async function inviteAdminMembership(name: string, email: string, role: AdminRole) {
-  await serverApi("/admin/memberships/invite", {
+  await serverApi("/peher-ops-9x7q/memberships/invite", {
     method: "POST",
     auth: true,
     body: JSON.stringify({ name, email, role }),
@@ -768,7 +768,7 @@ export async function inviteAdminMembership(name: string, email: string, role: A
 }
 
 export async function getApplicationBackups() {
-  const data = await serverApi<Record<string, any>[]>("/admin/backups", { auth: true });
+  const data = await serverApi<Record<string, any>[]>("/peher-ops-9x7q/backups", { auth: true });
   return data.map((backup): ApplicationBackup => ({
     id: backup.id,
     name: backup.name,
@@ -780,7 +780,7 @@ export async function getApplicationBackups() {
 }
 
 export async function createApplicationBackup(name: string, description: string) {
-  return serverApi<ApplicationBackup>("/admin/backups", {
+  return serverApi<ApplicationBackup>("/peher-ops-9x7q/backups", {
     method: "POST",
     auth: true,
     body: JSON.stringify({ name, description }),
@@ -788,11 +788,11 @@ export async function createApplicationBackup(name: string, description: string)
 }
 
 export async function exportApplicationBackup(id: string) {
-  return serverApi<Record<string, unknown>>(`/admin/backups/${id}/export`, { auth: true });
+  return serverApi<Record<string, unknown>>(`/peher-ops-9x7q/backups/${id}/export`, { auth: true });
 }
 
 export async function restoreApplicationBackup(id: string, confirmation: string) {
-  await serverApi(`/admin/backups/${id}/restore`, {
+  await serverApi(`/peher-ops-9x7q/backups/${id}/restore`, {
     method: "POST",
     auth: true,
     body: JSON.stringify({ confirmation }),

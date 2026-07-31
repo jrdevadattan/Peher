@@ -4,7 +4,7 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminAuthSkeleton } from "@/components/loading-skeletons";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/peher-ops-9x7q")({
   component: AdminRouteWrapper,
   head: () => ({
     meta: [

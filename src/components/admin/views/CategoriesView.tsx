@@ -64,19 +64,6 @@ export function CategoriesView() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !editing) return;
-    if (
-      ![
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/avif",
-        "image/heic",
-        "image/heif",
-      ].includes(file.type)
-    ) {
-      setMessage("Please upload a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
-      return;
-    }
     if (file.size > 10 * 1024 * 1024) {
       setMessage("Category images must be 10 MB or smaller.");
       return;

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CollectionsRouteImport } from './routes/collections'
@@ -22,6 +21,7 @@ import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MerchantFeedDotxmlRouteImport } from './routes/merchant-feed[.]xml'
 import { Route as NewArrivalsRouteImport } from './routes/new-arrivals'
+import { Route as PeherOps9x7qRouteImport } from './routes/peher-ops-9x7q'
 import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ShippingRouteImport } from './routes/shipping'
@@ -40,11 +40,6 @@ const IndexRoute = IndexRouteImport.update({
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -97,6 +92,11 @@ const NewArrivalsRoute = NewArrivalsRouteImport.update({
   path: '/new-arrivals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PeherOps9x7qRoute = PeherOps9x7qRouteImport.update({
+  id: '/peher-ops-9x7q',
+  path: '/peher-ops-9x7q',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReturnsRoute = ReturnsRouteImport.update({
   id: '/returns',
   path: '/returns',
@@ -146,7 +146,6 @@ const ProductIdRoute = ProductIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/collections': typeof CollectionsRoute
@@ -157,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
+  '/peher-ops-9x7q': typeof PeherOps9x7qRoute
   '/returns': typeof ReturnsRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
@@ -170,7 +170,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/collections': typeof CollectionsRoute
@@ -181,6 +180,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
+  '/peher-ops-9x7q': typeof PeherOps9x7qRoute
   '/returns': typeof ReturnsRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
@@ -195,7 +195,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/admin': typeof AdminRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/collections': typeof CollectionsRoute
@@ -206,6 +205,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/merchant-feed.xml': typeof MerchantFeedDotxmlRoute
   '/new-arrivals': typeof NewArrivalsRoute
+  '/peher-ops-9x7q': typeof PeherOps9x7qRoute
   '/returns': typeof ReturnsRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
@@ -221,7 +221,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
-    | '/admin'
     | '/cart'
     | '/checkout'
     | '/collections'
@@ -232,6 +231,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchant-feed.xml'
     | '/new-arrivals'
+    | '/peher-ops-9x7q'
     | '/returns'
     | '/robots.txt'
     | '/shipping'
@@ -245,7 +245,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/admin'
     | '/cart'
     | '/checkout'
     | '/collections'
@@ -256,6 +255,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchant-feed.xml'
     | '/new-arrivals'
+    | '/peher-ops-9x7q'
     | '/returns'
     | '/robots.txt'
     | '/shipping'
@@ -269,7 +269,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
-    | '/admin'
     | '/cart'
     | '/checkout'
     | '/collections'
@@ -280,6 +279,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/merchant-feed.xml'
     | '/new-arrivals'
+    | '/peher-ops-9x7q'
     | '/returns'
     | '/robots.txt'
     | '/shipping'
@@ -294,7 +294,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  AdminRoute: typeof AdminRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   CollectionsRoute: typeof CollectionsRoute
@@ -305,6 +304,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MerchantFeedDotxmlRoute: typeof MerchantFeedDotxmlRoute
   NewArrivalsRoute: typeof NewArrivalsRoute
+  PeherOps9x7qRoute: typeof PeherOps9x7qRoute
   ReturnsRoute: typeof ReturnsRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   ShippingRoute: typeof ShippingRoute
@@ -330,13 +330,6 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -409,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewArrivalsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/peher-ops-9x7q': {
+      id: '/peher-ops-9x7q'
+      path: '/peher-ops-9x7q'
+      fullPath: '/peher-ops-9x7q'
+      preLoaderRoute: typeof PeherOps9x7qRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/returns': {
       id: '/returns'
       path: '/returns'
@@ -478,7 +478,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  AdminRoute: AdminRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   CollectionsRoute: CollectionsRoute,
@@ -489,6 +488,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MerchantFeedDotxmlRoute: MerchantFeedDotxmlRoute,
   NewArrivalsRoute: NewArrivalsRoute,
+  PeherOps9x7qRoute: PeherOps9x7qRoute,
   ReturnsRoute: ReturnsRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   ShippingRoute: ShippingRoute,

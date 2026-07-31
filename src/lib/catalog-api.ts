@@ -221,7 +221,7 @@ export async function getSeoPages() {
 }
 
 export async function getAdminProducts() {
-  const data = await serverApi<ProductRow[]>("/admin/products", { auth: true });
+  const data = await serverApi<ProductRow[]>("/peher-ops-9x7q/products", { auth: true });
   return data.map(mapProduct);
 }
 
@@ -300,7 +300,7 @@ export async function submitProductReview(input: {
 }
 
 export async function saveProduct(product: AdminProduct) {
-  await serverApi(`/admin/products${product.databaseId ? `/${product.databaseId}` : ""}`, {
+  await serverApi(`/peher-ops-9x7q/products${product.databaseId ? `/${product.databaseId}` : ""}`, {
     method: product.databaseId ? "PATCH" : "POST",
     auth: true,
     body: JSON.stringify(product),
@@ -308,7 +308,7 @@ export async function saveProduct(product: AdminProduct) {
 }
 
 export async function deleteProduct(product: AdminProduct) {
-  await serverApi(`/admin/products/${product.databaseId}`, {
+  await serverApi(`/peher-ops-9x7q/products/${product.databaseId}`, {
     method: "DELETE",
     auth: true,
   });
@@ -334,7 +334,7 @@ export async function duplicateProduct(product: AdminProduct) {
 
 export async function updateProductStock(product: AdminProduct, delta: number) {
   const nextStock = Math.max(0, product.stock + delta);
-  await serverApi(`/admin/products/${product.databaseId}/stock`, {
+  await serverApi(`/peher-ops-9x7q/products/${product.databaseId}/stock`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ stock: nextStock }),
@@ -342,7 +342,7 @@ export async function updateProductStock(product: AdminProduct, delta: number) {
 }
 
 export async function setProductVisibility(product: AdminProduct, hidden: boolean) {
-  await serverApi(`/admin/products/${product.databaseId}/visibility`, {
+  await serverApi(`/peher-ops-9x7q/products/${product.databaseId}/visibility`, {
     method: "PATCH",
     auth: true,
     body: JSON.stringify({ hidden }),
@@ -353,7 +353,7 @@ export async function uploadProductImage(file: File, slug: string) {
   const body = new FormData();
   body.append("image", file);
   body.append("slug", slug);
-  const uploaded = await serverApi<{ path: string }>("/admin/media", {
+  const uploaded = await serverApi<{ path: string }>("/peher-ops-9x7q/media", {
     method: "POST",
     auth: true,
     body,
@@ -371,7 +371,7 @@ export type MediaAsset = {
 };
 
 export async function listProductMedia() {
-  const data = await serverApi<ProductRow[]>("/admin/media", { auth: true });
+  const data = await serverApi<ProductRow[]>("/peher-ops-9x7q/media", { auth: true });
   return data.map((entry): MediaAsset => ({
     id: entry.id,
     name: entry.name,
@@ -387,7 +387,7 @@ export async function uploadMediaAsset(file: File) {
 }
 
 export async function deleteMediaAsset(path: string) {
-  await serverApi("/admin/media", {
+  await serverApi("/peher-ops-9x7q/media", {
     method: "DELETE",
     auth: true,
     body: JSON.stringify({ path }),

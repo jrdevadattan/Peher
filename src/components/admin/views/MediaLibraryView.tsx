@@ -15,14 +15,6 @@ function formatBytes(bytes: number) {
 }
 
 export function MediaLibraryView() {
-  const allowedImageTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/avif",
-    "image/heic",
-    "image/heif",
-  ];
   const maxUploadBytes = 10 * 1024 * 1024;
   const queryClient = useQueryClient();
   const { data: images = [], isLoading, error } = useQuery({
@@ -39,10 +31,6 @@ export function MediaLibraryView() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin", "media"] });
 
   const upload = async (file: File) => {
-    if (!allowedImageTypes.includes(file.type)) {
-      setOperationError("Please upload a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
-      return;
-    }
     if (file.size > maxUploadBytes) {
       setOperationError("Images must be 10 MB or smaller.");
       return;

@@ -95,8 +95,18 @@ function validateStoredMediaPath(value, label = "Image") {
 async function validateUpload(file) {
   const normalized = await normalizeUploadedImage(file);
   if (!normalized)
-    throw publicError("The file content is not a supported JPG, PNG, WebP, or AVIF image.");
+    throw publicError("The file content is not a supported JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
   return normalized;
+}
+
+function uploadStorageError(error, fallback) {
+  if (!error) return fallback;
+  const message = String(error.message || error.error || "").trim();
+  if (!message) return fallback;
+  if (/mime|content.?type|allowed/i.test(message)) {
+    return `${fallback} Supabase Storage rejected the file type after upload validation. Try JPG, PNG, WebP, or AVIF.`;
+  }
+  return `${fallback} ${message}`;
 }
 
 function sanitizeProductTags(tags) {
@@ -363,7 +373,7 @@ router.post("/media", requirePermission("media"), upload.single("image"), async 
       contentType: mimeType,
       upsert: false,
     });
-    if (error) return res.status(400).json({ error: "Image could not be uploaded." });
+    if (error) return res.status(400).json({ error: uploadStorageError(error, "Image could not be uploaded.") });
     res.status(201).json({ path });
   } catch (error) {
     res.status(400).json({ error: safeErrorMessage(error, "Image could not be uploaded.") });
@@ -506,7 +516,7 @@ router.post(
         contentType: mimeType,
         upsert: false,
       });
-      if (error) return res.status(400).json({ error: "Category image could not be uploaded." });
+      if (error) return res.status(400).json({ error: uploadStorageError(error, "Category image could not be uploaded.") });
       res.status(201).json({ path });
     } catch (error) {
       res

@@ -21,6 +21,7 @@ import {
   buildWebsiteJsonLd,
   serializeJsonLd,
 } from "../lib/seo";
+import { ADMIN_ROUTE_PATH } from "../lib/admin-paths";
 
 function NotFoundComponent() {
   return (
@@ -100,9 +101,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       };
     }
     const pathname = matches.at(-1)?.pathname ?? "/";
-    const isPrivateRoute = /^\/(admin|dashboard|checkout|cart|wishlist|login|signup)(\/|$)/.test(
-      pathname,
-    );
+    const isPrivateRoute =
+      pathname === ADMIN_ROUTE_PATH ||
+      pathname.startsWith(`${ADMIN_ROUTE_PATH}/`) ||
+      /^\/(dashboard|checkout|cart|wishlist|login|signup)(\/|$)/.test(pathname);
     const canonical = absoluteUrl(settings, pathname === "/" ? "" : pathname);
     return {
       meta: [
@@ -178,7 +180,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const settings = Route.useLoaderData();
   const router = useRouter();
-  const isAdminRoute = router.state.location.pathname.startsWith("/admin");
+  const isAdminRoute =
+    router.state.location.pathname === ADMIN_ROUTE_PATH ||
+    router.state.location.pathname.startsWith(`${ADMIN_ROUTE_PATH}/`);
   const application = (
     <AuthProvider>
       <CartProvider>

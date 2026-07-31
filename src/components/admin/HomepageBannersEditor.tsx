@@ -93,19 +93,6 @@ export function HomepageBannersEditor() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (
-      ![
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/avif",
-        "image/heic",
-        "image/heif",
-      ].includes(file.type)
-    ) {
-      setMessage("Choose a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
-      return;
-    }
     if (file.size > 10 * 1024 * 1024) {
       setMessage("Banner images must be smaller than 10 MB.");
       return;

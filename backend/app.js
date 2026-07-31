@@ -87,7 +87,7 @@ app.use("/api/payment", paymentRouter);
 app.use("/api/catalog", catalogRouter);
 app.use("/api/coupons", couponsRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/admin", adminRouter);
+app.use("/api/peher-ops-9x7q", adminRouter);
 
 app.get("/", (_req, res) => res.send("PEHER API running"));
 app.get("/api", (_req, res) => res.json({ ok: true, service: "PEHER API" }));

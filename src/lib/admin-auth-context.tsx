@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { setAuthPersistence, supabase } from "@/lib/supabase";
 import { serverApi } from "@/lib/server-api";
+import { ADMIN_API_PREFIX, ADMIN_ROUTE_PATH } from "@/lib/admin-paths";
 
 export type AdminRole =
   | "Owner"
@@ -84,7 +85,7 @@ async function resolveAdmin(session: Session | null): Promise<AdminUser | null> 
       two_factor_enabled: boolean;
     };
     profile: { avatar_path: string | null; last_login_at: string | null } | null;
-  }>("/admin/session", { auth: true });
+  }>(`${ADMIN_API_PREFIX}/session`, { auth: true });
   const { membership, profile } = data;
 
   return {
@@ -155,7 +156,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
     setAdminUser(resolved);
     try {
-      await serverApi("/admin/session/touch", { method: "POST", auth: true });
+      await serverApi(`${ADMIN_API_PREFIX}/session/touch`, { method: "POST", auth: true });
     } catch (error) {
       console.error("Admin session touch failed", error);
     }
@@ -169,7 +170,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const requestPasswordReset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/admin`,
+      redirectTo: `${window.location.origin}${ADMIN_ROUTE_PATH}`,
     });
     if (error) throw error;
   };
