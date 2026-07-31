@@ -1,8 +1,8 @@
 ﻿import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import aboutPortrait from "@/assets/about-peher-portrait.jpg";
 import craft from "@/assets/craft.jpg";
-import editorial1 from "@/assets/editorial1.jpg";
 import hero from "@/assets/hero.jpg";
 
 export const Route = createFileRoute("/about")({
@@ -23,7 +23,7 @@ function About() {
 
       <section className="container-luxe grid grid-cols-1 lg:grid-cols-12 gap-12 pb-32 items-center">
         <div className="lg:col-span-6 aspect-[4/5] overflow-hidden">
-          <img src={editorial1} alt="" className="w-full h-full object-cover" />
+          <img src={aboutPortrait} alt="PEHER jewellery styled with stacked bangles" className="w-full h-full object-cover" />
         </div>
         <div className="lg:col-span-5 lg:col-start-8">
           <div className="space-y-5 text-foreground/75 leading-relaxed">
