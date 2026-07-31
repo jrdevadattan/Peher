@@ -73,6 +73,7 @@ app.use(
       if (isAllowedOrigin(origin)) return callback(null, true);
       callback(new Error("Origin is not allowed by CORS"));
     },
+    optionsSuccessStatus: 200,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
