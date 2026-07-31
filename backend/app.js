@@ -22,6 +22,7 @@ const paymentRouter = require("./routes/payment");
 const catalogRouter = require("./routes/catalog");
 const couponsRouter = require("./routes/coupons");
 const adminRouter = require("./routes/admin");
+const authRouter = require("./routes/auth");
 
 const app = express();
 const defaultOrigins = [
@@ -82,6 +83,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/catalog", catalogRouter);
 app.use("/api/coupons", couponsRouter);
+app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 
 app.get("/", (_req, res) => res.send("PEHER API running"));
@@ -94,7 +96,7 @@ app.use((error, _req, res, _next) => {
   if (error?.name === "MulterError") {
     return res.status(400).json({ error: "The uploaded file could not be processed." });
   }
-  res.status(400).json({ error: "Request could not be processed." });
+  res.status(400).json({ error: error?.message || "Request could not be processed." });
 });
 
 module.exports = app;

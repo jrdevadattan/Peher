@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { serverApi } from "@/lib/server-api";
 
 type User = { id: string; name: string; email: string };
 
@@ -49,15 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (name: string, email: string, password: string, confirmPassword: string) => {
     if (password !== confirmPassword) throw new Error("Passwords do not match.");
-    const { data, error } = await supabase.auth.signUp({
+    await serverApi("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password }),
+    });
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: { data: { full_name: name } },
     });
     if (error) throw error;
-    if (!data.session) {
-      throw new Error("Check your inbox to confirm your email, then log in.");
-    }
+    applySession(data.session);
   };
 
   const login = async (email: string, password: string) => {

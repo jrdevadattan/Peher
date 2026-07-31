@@ -45,7 +45,14 @@ function normalizeMarketingTag(value: string) {
 }
 
 export function ProductsView() {
-  const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+  const allowedImageTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/avif",
+    "image/heic",
+    "image/heif",
+  ];
   const maxUploadBytes = 10 * 1024 * 1024;
   const queryClient = useQueryClient();
   const { data: products = [], isLoading, error: loadError } = useQuery({
@@ -193,7 +200,7 @@ export function ProductsView() {
   const handleImageUpload = async (file: File, kind: "primary" | "hover") => {
     if (!editingProduct) return;
     if (!allowedImageTypes.includes(file.type)) {
-      setOperationError("Please upload a JPG, PNG, WebP, or AVIF image.");
+      setOperationError("Please upload a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
       return;
     }
     if (file.size > maxUploadBytes) {
@@ -784,14 +791,14 @@ export function ProductsView() {
                 <UploadCloud className="w-8 h-8 mx-auto text-muted-foreground" />
                 <div>
                   <p className="text-xs font-semibold">Upload Product Images to Supabase Storage</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Supports PNG, JPG, WebP up to 10MB</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Supports PNG, JPG, WebP, AVIF, HEIC, and HEIF up to 10MB</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   <label className="cursor-pointer rounded-lg border border-border bg-card px-3 py-2 text-[10px] font-semibold uppercase tracking-wider hover:bg-muted">
                     Primary image
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
                       className="hidden"
                       disabled={isEditorBusy}
                       onChange={(event) => {
@@ -806,7 +813,7 @@ export function ProductsView() {
                     Hover image
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
                       className="hidden"
                       disabled={isEditorBusy}
                       onChange={(event) => {

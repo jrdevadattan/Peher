@@ -15,7 +15,14 @@ function formatBytes(bytes: number) {
 }
 
 export function MediaLibraryView() {
-  const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+  const allowedImageTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/avif",
+    "image/heic",
+    "image/heif",
+  ];
   const maxUploadBytes = 10 * 1024 * 1024;
   const queryClient = useQueryClient();
   const { data: images = [], isLoading, error } = useQuery({
@@ -33,7 +40,7 @@ export function MediaLibraryView() {
 
   const upload = async (file: File) => {
     if (!allowedImageTypes.includes(file.type)) {
-      setOperationError("Please upload a JPG, PNG, WebP, or AVIF image.");
+      setOperationError("Please upload a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
       return;
     }
     if (file.size > maxUploadBytes) {
@@ -81,7 +88,7 @@ export function MediaLibraryView() {
           <UploadCloud className="w-4 h-4" /> {busy ? "Working..." : "Upload New Asset"}
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
+            accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
             className="hidden"
             disabled={busy}
             onChange={(event) => {

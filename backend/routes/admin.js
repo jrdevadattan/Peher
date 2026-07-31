@@ -5,7 +5,7 @@ const requireAuth = require("../middleware/auth");
 const requirePermission = require("../middleware/requirePermission");
 const supabase = require("../lib/supabase");
 const { publicError, safeErrorMessage } = require("../lib/http-error");
-const { inspectImage } = require("../lib/image-upload");
+const { normalizeUploadedImage } = require("../lib/image-upload");
 const { submitIndexNow } = require("../lib/indexnow");
 const { keyMatchesMode } = require("../lib/razorpay-security");
 
@@ -14,9 +14,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, callback) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-    if (!allowed.includes(file.mimetype)) {
-      callback(new Error("Unsupported image type"));
+    if (
+      !file.mimetype.startsWith("image/") &&
+      file.mimetype !== "application/octet-stream"
+    ) {
+      callback(new Error("Only image uploads are supported here."));
       return;
     }
     callback(null, true);
@@ -90,11 +92,11 @@ function validateStoredMediaPath(value, label = "Image") {
   return path;
 }
 
-function validateUpload(file) {
-  const detected = inspectImage(file?.buffer);
-  if (!detected)
+async function validateUpload(file) {
+  const normalized = await normalizeUploadedImage(file);
+  if (!normalized)
     throw publicError("The file content is not a supported JPG, PNG, WebP, or AVIF image.");
-  return detected;
+  return normalized;
 }
 
 function sanitizeProductTags(tags) {
@@ -348,20 +350,24 @@ router.patch("/products/:id/visibility", requirePermission("products"), async (r
 });
 
 router.post("/media", requirePermission("media"), upload.single("image"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
-  const { extension, mimeType } = validateUpload(req.file);
-  const slug = String(req.body.slug || "library")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  const path = `catalog/${slug || "library"}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage.from("product-media").upload(path, req.file.buffer, {
-    cacheControl: "31536000",
-    contentType: mimeType,
-    upsert: false,
-  });
-  if (error) return res.status(400).json({ error: "Image could not be uploaded." });
-  res.status(201).json({ path });
+  try {
+    if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
+    const { extension, mimeType, buffer } = await validateUpload(req.file);
+    const slug = String(req.body.slug || "library")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    const path = `catalog/${slug || "library"}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage.from("product-media").upload(path, buffer, {
+      cacheControl: "31536000",
+      contentType: mimeType,
+      upsert: false,
+    });
+    if (error) return res.status(400).json({ error: "Image could not be uploaded." });
+    res.status(201).json({ path });
+  } catch (error) {
+    res.status(400).json({ error: safeErrorMessage(error, "Image could not be uploaded.") });
+  }
 });
 
 router.get("/media", requirePermission("media"), async (_req, res) => {
@@ -491,16 +497,22 @@ router.post(
   requirePermission("media"),
   upload.single("image"),
   async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
-    const { extension, mimeType } = validateUpload(req.file);
-    const path = `catalog/categories/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const { error } = await supabase.storage.from("product-media").upload(path, req.file.buffer, {
-      cacheControl: "31536000",
-      contentType: mimeType,
-      upsert: false,
-    });
-    if (error) return res.status(400).json({ error: "Category image could not be uploaded." });
-    res.status(201).json({ path });
+    try {
+      if (!req.file) return res.status(400).json({ error: "Choose an image to upload." });
+      const { extension, mimeType, buffer } = await validateUpload(req.file);
+      const path = `catalog/categories/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      const { error } = await supabase.storage.from("product-media").upload(path, buffer, {
+        cacheControl: "31536000",
+        contentType: mimeType,
+        upsert: false,
+      });
+      if (error) return res.status(400).json({ error: "Category image could not be uploaded." });
+      res.status(201).json({ path });
+    } catch (error) {
+      res
+        .status(400)
+        .json({ error: safeErrorMessage(error, "Category image could not be uploaded.") });
+    }
   },
 );
 

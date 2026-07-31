@@ -1,3 +1,5 @@
+const sharp = require("sharp");
+
 const IMAGE_SIGNATURES = [
   {
     extension: "jpg",
@@ -30,6 +32,24 @@ const IMAGE_SIGNATURES = [
       return brand === "avif" || brand === "avis" || compatibleBrands.includes("avif");
     },
   },
+  {
+    extension: "heic",
+    mimeType: "image/heic",
+    matches: (buffer) => {
+      if (buffer.length < 16 || buffer.subarray(4, 8).toString("ascii") !== "ftyp") return false;
+      const brands = buffer.subarray(8, Math.min(buffer.length, 32)).toString("ascii");
+      return ["heic", "heix", "hevc", "hevx"].some((brand) => brands.includes(brand));
+    },
+  },
+  {
+    extension: "heif",
+    mimeType: "image/heif",
+    matches: (buffer) => {
+      if (buffer.length < 16 || buffer.subarray(4, 8).toString("ascii") !== "ftyp") return false;
+      const brands = buffer.subarray(8, Math.min(buffer.length, 32)).toString("ascii");
+      return ["mif1", "msf1"].some((brand) => brands.includes(brand));
+    },
+  },
 ];
 
 function inspectImage(buffer) {
@@ -37,4 +57,30 @@ function inspectImage(buffer) {
   return IMAGE_SIGNATURES.find((signature) => signature.matches(buffer)) || null;
 }
 
-module.exports = { inspectImage };
+async function normalizeUploadedImage(file) {
+  const detected = inspectImage(file?.buffer);
+  if (!detected) return null;
+  if (detected.extension !== "heic" && detected.extension !== "heif") {
+    return {
+      buffer: file.buffer,
+      extension: detected.extension,
+      mimeType: detected.mimeType,
+    };
+  }
+
+  try {
+    const convertedBuffer = await sharp(file.buffer, { limitInputPixels: false })
+      .rotate()
+      .jpeg({ quality: 92, mozjpeg: true })
+      .toBuffer();
+    return {
+      buffer: convertedBuffer,
+      extension: "jpg",
+      mimeType: "image/jpeg",
+    };
+  } catch {
+    throw new Error("HEIC/HEIF images could not be converted. Please try a JPG, PNG, WebP, or AVIF image.");
+  }
+}
+
+module.exports = { inspectImage, normalizeUploadedImage };

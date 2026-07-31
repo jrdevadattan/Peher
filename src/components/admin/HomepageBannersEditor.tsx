@@ -93,8 +93,17 @@ export function HomepageBannersEditor() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setMessage("Choose a JPG, PNG, WebP, or another image file.");
+    if (
+      ![
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/avif",
+        "image/heic",
+        "image/heif",
+      ].includes(file.type)
+    ) {
+      setMessage("Choose a JPG, PNG, WebP, AVIF, HEIC, or HEIF image.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -307,7 +316,7 @@ export function HomepageBannersEditor() {
                       {banner.imagePath ? "Replace image" : "Upload image"}
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp,image/avif"
+                        accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
                         disabled={isBusy}
                         onChange={(event) => void handleUpload(event, index)}
                         className="sr-only"
