@@ -66,6 +66,7 @@ function isAllowedOrigin(origin) {
 }
 
 app.set("trust proxy", 1);
+app.disable("etag");
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
@@ -79,6 +80,10 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "16mb" }));
+app.use("/api", (_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 
 app.post("/api/create-order", ...paymentRouter.createOrderMiddlewares);
 app.post("/api/verify-payment", ...paymentRouter.verifyPaymentMiddlewares);

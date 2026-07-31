@@ -47,6 +47,22 @@ function buildReceipt(value) {
   return `receipt_${Date.now()}`;
 }
 
+function paymentGatewayError(error) {
+  const description = String(error?.error?.description || error?.message || "").trim();
+  const code = String(error?.error?.code || "").trim();
+  const statusCode = Number(error?.statusCode || error?.status || 500);
+  if (statusCode === 401 || /auth/i.test(description)) {
+    return publicError("Payment gateway authentication is misconfigured. Please contact support.", 503);
+  }
+  if (/amount/i.test(description)) {
+    return publicError(description, 400);
+  }
+  if (code || description) {
+    console.warn("Razorpay create-order failed", { statusCode, code, description });
+  }
+  return error;
+}
+
 async function getPaymentSettings() {
   const { data, error } = await supabase
     .from("payment_settings")
@@ -122,9 +138,10 @@ async function createOrderHandler(req, res) {
 
     res.json(response);
   } catch (error) {
+    const safeError = paymentGatewayError(error);
     res
-      .status(error.status || 500)
-      .json({ error: safeErrorMessage(error, "Could not initiate payment.") });
+      .status(safeError.status || 500)
+      .json({ error: safeErrorMessage(safeError, "Could not initiate payment.") });
   }
 }
 
